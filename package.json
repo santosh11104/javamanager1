@@ -1,0 +1,26 @@
+{
+    "name": "java-manager",
+    "version": "1.0.0",
+    "description": "Manage Java installation & environment setup for Ubuntu",
+    "main": "app.js",
+    "bin": {
+        "java-manager": "app.js"
+    },
+    "scripts": {
+        "start": "node app.js"
+    },
+    "keywords": [
+        "java",
+        "ubuntu",
+        "centos"
+    ],
+    "author": "Santoshkumar",
+    "license": "MIT",
+    "dependencies": {
+        "commander": "^13.1.0",
+        "dotenv": "^16.4.7",
+        "express": "^4.21.2",
+        "ora": "^8.1.1",
+        "sudo-prompt": "^9.2.1"
+    }
+}
