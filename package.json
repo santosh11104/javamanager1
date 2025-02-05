@@ -1,13 +1,13 @@
 {
     "name": "java-manager",
     "version": "1.0.0",
-    "description": "Manage Java installation & environment setup for Ubuntu",
-    "main": "app.js",
+    "description": "CLI toolfor Java upgrade & environment setup.",
+    "main": "cli.js",
     "bin": {
-        "java-manager": "app.js"
+        "java-manager": "cli.js"
     },
     "scripts": {
-        "start": "node app.js"
+        "start": "node cli.js"
     },
     "keywords": [
         "java",
@@ -17,10 +17,13 @@
     "author": "Santoshkumar",
     "license": "MIT",
     "dependencies": {
+        "axios": "^1.7.9",
         "commander": "^13.1.0",
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
+        "inquirer": "^8.2.6",
         "ora": "^8.1.1",
+        "shelljs": "^0.8.5",
         "sudo-prompt": "^9.2.1"
     }
 }
