@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TOMCAT_VERSION="10.1.34"  # Modify this dynamically in the upgrade script
-TOMCAT_DIR="/opt/tomcat"
+TOMCAT_DIR="/opt/tomcat10"
 TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-10/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
 TOMCAT_SERVICE_NAME="tomcat10"
 

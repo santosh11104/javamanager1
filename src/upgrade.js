@@ -50,16 +50,26 @@ async function upgradeTomcat(version) {
   return new Promise(async (resolve, reject) => {
     console.log(`Upgrading Tomcat to version ${version}...`);
 
-    const tomcatServiceName = `tomcat${version.split(".")[0]}`;
+    const tomcatServiceName = `tomcat${version.split('.')[0]}`;
 
     try {
+      // 1. Stop ALL existing Tomcat services (Crucial!)
+      console.log("Stopping ALL running Tomcat services...");
+      await new Promise(resolveStop => {
+          exec(`sudo systemctl stop tomcat* || true`, resolveStop);
+      });
+
+      // 2. Disable ALL existing Tomcat services (Crucial!)
+      console.log("Disabling ALL existing Tomcat services...");
+      await new Promise(resolveDisable => {
+          exec(`sudo systemctl disable tomcat* || true`, resolveDisable);
+      });
+
+      // 3. Remove previous Tomcat versions (More Robust)
       console.log("Removing previous Tomcat versions...");
       await new Promise((resolveUninstall, rejectUninstall) => {
         exec(
-          `sudo systemctl stop tomcat9 || true &&
-           sudo systemctl stop tomcat10 || true &&
-           sudo apt remove --purge -y tomcat9 tomcat9-common &&
-           sudo rm -rf /opt/tomcat /var/lib/tomcat9 /etc/tomcat9`,
+          `sudo apt remove --purge -y tomcat* || true && sudo rm -rf /opt/tomcat* /usr/share/tomcat* /var/lib/tomcat* /etc/tomcat*`, // Remove all tomcat locations
           (removeError, removeStdout, removeStderr) => {
             if (removeError) {
               console.warn(`Warning: Could not fully remove old Tomcat versions: ${removeStderr}`);
@@ -69,68 +79,61 @@ async function upgradeTomcat(version) {
         );
       });
 
+      // 4. Run Tomcat installation script
       console.log("Running Tomcat installation script...");
       await new Promise((resolveTomcatInstall, rejectTomcatInstall) => {
         exec(`sudo bash ./install_tomcat.sh`, (installError, installStdout, installStderr) => {
           if (installError) {
             console.error(`Tomcat installation script failed:\n${installStderr}`);
-            rejectTomcatInstall(new Error(`Tomcat installation failed: ${installStderr}`));
-            return;
+            return rejectTomcatInstall(new Error(`Tomcat installation failed: ${installStderr}`));
           }
           console.log(`Tomcat installation script executed successfully: ${installStdout}`);
           resolveTomcatInstall();
         });
       });
 
+      // 5. Set up systemd service for Tomcat (Improved)
       console.log("Setting up systemd service for Tomcat...");
       const serviceFilePath = `/etc/systemd/system/${tomcatServiceName}.service`;
+      const serviceFileContent = `
+        [Unit]
+        Description=Apache Tomcat ${version}
+        After=network.target
 
-      if (!fs.existsSync(serviceFilePath)) {
-        console.log("Creating new systemd service file...");
-        const serviceFileContent = `
-          [Unit]
-          Description=Apache Tomcat ${version}
-          After=network.target
+        [Service]
+        Type=forking
+        User=tomcat
+        Group=tomcat
+        Environment=JAVA_HOME=/usr/lib/jvm/default-java  # Or use your specific path
+        Environment=CATALINA_HOME=/opt/tomcat10  # Make sure this is correct!
+        ExecStart=/opt/tomcat10/bin/catalina.sh run
+        ExecStop=/opt/tomcat10/bin/catalina.sh stop
+        Restart=always
 
-          [Service]
-          User=tomcat
-          Group=tomcat
-          Environment=JAVA_HOME=/usr/lib/jvm/default-java
-          Environment=CATALINA_HOME=/opt/tomcat
-          ExecStart=/opt/tomcat/bin/catalina.sh run
-          ExecStop=/opt/tomcat/bin/catalina.sh stop
-          Restart=always
+        [Install]
+        WantedBy=multi-user.target
+      `;
 
-          [Install]
-          WantedBy=multi-user.target
-        `;
+      await fs.promises.writeFile(serviceFilePath, serviceFileContent); // Write directly to the correct location
 
-        fs.writeFileSync(`/tmp/${tomcatServiceName}.service`, serviceFileContent);
-
-        exec(`sudo mv /tmp/${tomcatServiceName}.service ${serviceFilePath}`, (mvErr) => {
-          if (mvErr) {
-            console.error("Failed to move systemd service file:", mvErr);
-            reject(new Error("Failed to configure Tomcat systemd service."));
-            return;
-          }
-        });
-      }
-
+      // 6. Reload systemd and start Tomcat (Improved)
       console.log("Reloading systemd and starting Tomcat...");
-      exec(
-        `sudo systemctl daemon-reload && sudo systemctl enable ${tomcatServiceName} && sudo systemctl restart ${tomcatServiceName}`,
-        (startError) => {
+      await new Promise((resolveStart, rejectStart) => {
+        exec(`sudo systemctl daemon-reload && sudo systemctl enable ${tomcatServiceName} && sudo systemctl start ${tomcatServiceName}`, (startError, startStdout, startStderr) => {
           if (startError) {
-            console.error("Failed to start Tomcat 10:", startError);
-            reject(new Error("Tomcat 10 startup failed."));
-            return;
+            console.error(`Failed to start Tomcat ${version}:\n${startStderr}`);
+            return rejectStart(new Error(`Tomcat ${version} startup failed: ${startError}`)); // Pass the error object
           }
-          console.log("Tomcat 10 started successfully.");
-          resolve();
-        }
-      );
+          console.log(`Tomcat ${version} started successfully:\n${startStdout}`);
+          resolveStart();
+        });
+      });
+
+      resolve(); // Resolve the main promise if everything is successful
+
     } catch (error) {
-      reject(error);
+      console.error("Tomcat upgrade failed:", error);
+      reject(error); // Reject with the caught error
     }
   });
 }
