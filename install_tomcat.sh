@@ -1,46 +1,37 @@
 #!/bin/bash
 
-tomcatDir="/opt/tomcat"
-tomcatUrl="https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.34/bin/apache-tomcat-10.1.34.tar.gz"
-tomcatServiceName="tomcat10"
+TOMCAT_VERSION="10.1.34"  # Modify this dynamically in the upgrade script
+TOMCAT_DIR="/opt/tomcat"
+TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-10/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+TOMCAT_SERVICE_NAME="tomcat10"
 
-sudo systemctl stop "$tomcatServiceName" || true
+echo "Stopping any existing Tomcat service..."
+sudo systemctl stop tomcat9 || true
+sudo systemctl stop tomcat10 || true
 
-set -e
+set -e  # Exit on error
 
-# Create the tomcat user and group if they don't exist
-if ! getent group tomcat > /dev/null; then
-    sudo addgroup tomcat
-fi
-if ! getent passwd tomcat > /dev/null; then
-    sudo adduser --ingroup tomcat --disabled-password --gecos "" tomcat
-fi
+# Remove old Tomcat installations
+sudo rm -rf "$TOMCAT_DIR"
 
-# Create the Tomcat directory (and parent directories if necessary)
-sudo mkdir -p "$tomcatDir"
-
+echo "Downloading Tomcat $TOMCAT_VERSION..."
 cd /tmp
+wget -q "$TOMCAT_URL" -O tomcat.tar.gz
 
-# Download the file (as the user running the script)
-wget "$tomcatUrl"
-
-# Check if the download was successful (using stat)
-if ! stat -c '%s' apache-tomcat-10.1.34.tar.gz > /dev/null 2>&1; then
-  echo "Tomcat archive download failed." >&2
+if [ $? -ne 0 ]; then
+  echo "Failed to download Tomcat archive."
   exit 1
 fi
 
-# Change ownership to root (explicitly)
-sudo chown root:root apache-tomcat-10.1.34.tar.gz
+echo "Extracting Tomcat..."
+sudo mkdir -p "$TOMCAT_DIR"
+sudo tar -xzf tomcat.tar.gz -C "$TOMCAT_DIR" --strip-components=1
+rm -f tomcat.tar.gz
 
-# Extract the archive (as root) - use absolute path and specify the archive name
-sudo tar -xzf /tmp/apache-tomcat-10.1.34.tar.gz -C "$tomcatDir" --strip-components=1
+echo "Setting up Tomcat user and permissions..."
+sudo adduser --system --no-create-home --group tomcat || true
+sudo chown -R tomcat:tomcat "$TOMCAT_DIR"
+sudo chmod +x "$TOMCAT_DIR"/bin/*.sh
 
-# Set ownership and permissions on the Tomcat directory (as root)
-sudo chown -R tomcat:tomcat "$tomcatDir"
-sudo chmod +x "$tomcatDir"/bin/*.sh
-
-# Create symbolic link (as root)
-sudo ln -sf "$tomcatDir" /opt/tomcat
-
+echo "Tomcat $TOMCAT_VERSION installed successfully."
 exit 0
