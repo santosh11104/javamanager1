@@ -58,15 +58,39 @@ async function uninstallJava() {
             console.log("Java directories removed.");
           }
 
-          exec("sudo apt autoremove -y && sudo apt autoclean -y", () => {
-            console.log("Java cleanup completed.");
-            resolve();
+          console.log("Removing JAVA_HOME from system environment...");
+          const removeJavaHomeCommands = [
+            "sudo sed -i '/JAVA_HOME/d' /etc/environment",
+            "sudo sed -i '/JAVA_HOME/d' /etc/profile",
+            "sed -i '/JAVA_HOME/d' ~/.bashrc",
+            "sed -i '/JAVA_HOME/d' ~/.bash_profile",
+            "sed -i '/JAVA_HOME/d' ~/.zshrc || true",
+            "unset JAVA_HOME"
+          ].join(" && ");
+
+          exec(removeJavaHomeCommands, (envError, envStdout, envStderr) => {
+            if (envError) {
+              console.warn(`Warning: Failed to remove JAVA_HOME: ${envStderr}`);
+            } else {
+              console.log("JAVA_HOME removed from environment.");
+            }
+
+            console.log("Reloading environment variables...");
+            exec("source /etc/environment && source ~/.bashrc", () => {
+              console.log("Environment variables reloaded.");
+              exec("sudo apt autoremove -y && sudo apt autoclean -y", () => {
+                console.log("Java cleanup completed.");
+                resolve();
+              });
+            });
           });
         });
       });
     });
   });
 }
+
+
 
 
 
@@ -88,14 +112,14 @@ async function uninstallTomcat() {
       "sudo rm -f ~/.config/systemd/user/tomcat*.service",
 
       // Kill Tomcat processes
-      "sudo pkill -f tomcat || true",
+      "ps aux | grep -i tomcat | grep -v grep | awk '{print $2}' | xargs -I {} sudo kill -9 {}",
 
       // Remove Tomcat directories
-      "sudo rm -rf /usr/share/tomcat* /var/lib/tomcat* /etc/tomcat* /opt/tomcat || true",
+      "sudo rm -rf /usr/share/tomcat* /var/lib/tomcat* /etc/tomcat* /opt/tomcat10 || true",
 
       // Reload systemd daemon
       "sudo systemctl daemon-reload",
-      "systemctl --user daemon-reload", // No sudo for user-level daemon-reload
+      "sudo systemctl --user daemon-reload", // No sudo for user-level daemon-reload
     ];
 
 
