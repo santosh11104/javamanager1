@@ -5,7 +5,7 @@ const axios = require("axios");
 const { installJava, installTomcat } = require("../src/install");
 const { uninstallJava, uninstallTomcat } = require("../src/uninstall");
 const { upgrade } = require("../src/upgrade");
-const { rollback } = require("../src/rollback");
+const { rollbackJava, rollbackTomcat } = require("../src/rollback");
 
 const MAVEESERVER_URL = "http://127.0.0.1:3000/version";
 
@@ -54,11 +54,28 @@ program
       console.error("Upgrade failed:", error);
       console.log("Rolling back to previous versions...");
       try {
-        await rollback();
+        await rollbackJava();
+        await rollbackTomcat();
         console.log("Rollback successful.");
       } catch (rollbackError) {
         console.error("Rollback failed:", rollbackError);
       }
+      process.exit(1);
+    }
+  });
+
+program
+  .command("rollback")
+  .description("Rollback Java and Tomcat to previous versions")
+  .action(async () => {
+    console.log("Starting rollback process...");
+    try {
+      await rollbackJava();
+      await rollbackTomcat();
+      console.log("Rollback completed successfully!");
+      process.exit(0);
+    } catch (error) {
+      console.error("Rollback failed:", error);
       process.exit(1);
     }
   });
