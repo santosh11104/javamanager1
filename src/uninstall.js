@@ -1,3 +1,24 @@
+/**
+ * Uninstalls all installed Java versions on the system.
+ *
+ * This function first checks for installed OpenJDK packages using `dpkg`, then uninstalls them using `apt remove`. It also cleans up Java directories in `/usr/lib/jvm` and removes the `JAVA_HOME` environment variable. Finally, it reloads the system environment variables.
+ *
+ * @returns {Promise<void>} A Promise that resolves when the Java uninstallation is complete.
+ */
+async function uninstallJava() {
+  // Function implementation
+}
+
+/**
+ * Uninstalls all installed Tomcat versions on the system.
+ *
+ * This function detects and removes all Tomcat services, stops and disables them, removes the service files, kills any running Tomcat processes, and removes the Tomcat directories. Finally, it reloads the systemd daemon.
+ *
+ * @returns {Promise<void>} A Promise that resolves when the Tomcat uninstallation is complete.
+ */
+async function uninstallTomcat() {
+  // Function implementation
+}
 const { exec } = require("child_process");
 
 // Function to uninstall all Java versions

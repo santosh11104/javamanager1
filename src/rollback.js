@@ -1,3 +1,37 @@
+/**
+ * Checks if a backup file or directory exists at the specified path.
+ * @param {string} path - The path to check for the existence of a backup.
+ * @returns {boolean} - True if the backup exists, false otherwise.
+ */
+function backupExists(path) {
+  return fs.existsSync(path);
+}
+
+/**
+ * Creates a backup of the specified source path to the destination path, if the backup does not already exist.
+ * @param {string} src - The source path to be backed up.
+ * @param {string} dest - The destination path for the backup.
+ * @returns {Promise<void>} - A Promise that resolves when the backup is created, or if the backup already exists.
+ */
+async function createBackup(src, dest) {
+  // ...
+}
+
+/**
+ * Rolls back the Java installation to version 17.
+ * @returns {Promise<void>} - A Promise that resolves when the Java rollback is complete.
+ */
+async function rollbackJava() {
+  // ...
+}
+
+/**
+ * Rolls back the Tomcat installation to version 9.
+ * @returns {Promise<void>} - A Promise that resolves when the Tomcat rollback is complete.
+ */
+async function rollbackTomcat() {
+  // ...
+}
 const { exec } = require("child_process");
 const fs = require("fs");
 
