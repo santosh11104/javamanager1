@@ -1,140 +1,139 @@
-/**
- * Installs Java 17 and sets the JAVA_HOME environment variable globally.
- *
- * This function updates the system package index, installs the OpenJDK 17 JDK package,
- * and then sets the JAVA_HOME environment variable in the /etc/environment and /etc/profile
- * files to point to the Java 17 installation directory.
- *
- * @returns {Promise<void>} A Promise that resolves when the Java installation and JAVA_HOME
- * configuration is complete, or rejects with an error message if the installation or
- * configuration fails.
- */
-async function installJava() {
-  // Function implementation
-}
-
-/**
- * Installs Apache Tomcat 9.0.98 and configures it as a systemd service.
- *
- * This function downloads the Tomcat 9.0.98 distribution, extracts it to the /opt/tomcat9
- * directory, creates a tomcat system user, and sets up a systemd service file to manage
- * the Tomcat server. The function also ensures the necessary permissions are set and
- * restarts the Tomcat service.
- *
- * @returns {Promise<void>} A Promise that resolves when the Tomcat installation and
- * configuration is complete, or rejects with an error message if the installation or
- * configuration fails.
- */
-async function installTomcat() {
-  // Function implementation
-}
 const { exec } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
 
-// Function to install Java and set JAVA_HOME
+// Path to the JSON configuration file
+const configPath = path.join(__dirname, "mavee_config.json"); // Adjust the path as needed
+
+// Read configuration from the JSON file
+const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+const javaVersion = config.mave.dependencies.java.version;
+const javaUrl = config.mave.dependencies.java.packageUrlUnix;
+
+// Function to install Java from the URL specified in the JSON file
 async function installJava() {
   return new Promise((resolve, reject) => {
-    exec(
-      "sudo apt update && sudo apt install -y openjdk-17-jdk",
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(`Java installation failed: ${stderr}`);
-        } else {
-          console.log(`Java installed successfully: ${stdout}`);
+    console.log(`🚀 Installing Java ${javaVersion} from ${javaUrl}...`);
 
-          // Set JAVA_HOME globally
-          const javaHomeCmd = `
-          echo 'JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"' | sudo tee /etc/environment &&
-          echo 'export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"' | sudo tee -a /etc/profile &&
-          echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
-        `;
+    // Define the command to download and install Java
+    const javaDir = `/opt/openjdk-${javaVersion}`;
+    const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
 
-          exec(javaHomeCmd, (err) => {
-            if (err) {
-              reject("Failed to set JAVA_HOME");
-            } else {
-              console.log("JAVA_HOME set successfully!");
-              resolve();
-            }
-          });
-        }
+    // Ensure the path is quoted properly for Java directories
+   /* const commands = [
+      `sudo apt update`, // Update package index
+      `sudo mkdir -p "${javaDir}"`, // Ensure the directory for Java exists
+      `sudo wget -q "${javaUrl}" -O "${tempTarFile}"`, // Download Java tarball
+      `sudo tar -xzf "${tempTarFile}" -C "${javaDir}" --strip-components=1`, // Extract Java tarball
+      `rm -f "${tempTarFile}"`, // Remove the tarball file after extraction
+      `echo 'JAVA_HOME="${javaDir}"' | sudo tee /etc/environment`, // Set JAVA_HOME
+      `echo 'export JAVA_HOME="${javaDir}"' | sudo tee -a /etc/profile`, // Set JAVA_HOME in profile
+      `echo 'export PATH=\$JAVA_HOME/bin:\$PATH' | sudo tee -a /etc/profile`, // Update PATH
+      `. /etc/profile`, // Reload profile
+    ];*/
+    const commands = `
+      sudo apt update &&
+      sudo mkdir -p /opt &&
+      sudo wget -q ${javaUrl} -O /tmp/java.tar.gz &&
+      sudo tar -xzf /tmp/java.tar.gz -C /opt &&
+      extracted_folder=$(ls /opt | grep 'jdk' | head -n 1) &&
+      sudo rm -rf /opt/openjdk-${javaVersion} &&
+      sudo mv /opt/$extracted_folder /opt/openjdk-${javaVersion} &&
+      rm -f /tmp/java.tar.gz &&
+      echo 'JAVA_HOME="/opt/openjdk-${javaVersion}"' | sudo tee /etc/environment &&
+      echo 'export JAVA_HOME="/opt/openjdk-${javaVersion}"' | sudo tee -a /etc/profile &&
+      echo 'export PATH="$JAVA_HOME/bin:$PATH"' | sudo tee -a /etc/profile &&
+      . /etc/profile  # Use dot instead of source
+    `;
+
+    exec(commands, { shell: "/bin/bash" }, (error, stdout, stderr) => {  // <-- Use bash shell
+      if (error) {
+        console.error(`❌ Java installation failed: ${stderr}`);
+         
+        reject(stderr);
+      } else {
+        console.log(`✅ Java ${javaVersion} installed successfully.`);
+        resolve(stdout);
       }
-    );
+    });
   });
 }
 
-// Function to install and configure Tomcat 9
+const tomcatVersion = config.mave.dependencies.tomcat.version;
+const tomcatUrl = config.mave.dependencies.tomcat.packageUrlUnix;
 
-const fs = require("fs");
-
+// Function to install Tomcat from the URL specified in the JSON file
 async function installTomcat() {
   return new Promise((resolve, reject) => {
-    console.log("🚀 Installing Tomcat 9.0.98...");
+    console.log(`🚀 Installing Apache Tomcat ${tomcatVersion} from ${tomcatUrl}...`);
 
-    const TOMCAT_VERSION = "9.0.98";
-    const TOMCAT_URL = `https://dlcdn.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz`;
-    const TOMCAT_DIR = "/opt/tomcat9";
-    const SERVICE_FILE_PATH = "/etc/systemd/system/tomcat9.service";
+    // Define the Tomcat directory and service file path
+    const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
+    const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
+    const tempTarFile = `/tmp/tomcat-${tomcatVersion}.tar.gz`;
 
-    const commands = [
-      "sudo apt update",
-      "sudo apt install -y default-jdk wget", // Ensure JDK & wget are installed
-      "sudo systemctl stop tomcat9 || true",
-      `sudo rm -rf ${TOMCAT_DIR}`, // Remove previous Tomcat installations
-      `sudo mkdir -p ${TOMCAT_DIR}`, // Create Tomcat directory
-      `cd /tmp && wget -q ${TOMCAT_URL} -O tomcat.tar.gz`, // Download Tomcat
-      `sudo tar -xzf /tmp/tomcat.tar.gz -C ${TOMCAT_DIR} --strip-components=1`, // Extract
-      "rm -f /tmp/tomcat.tar.gz", // Cleanup
-      "sudo adduser --system --no-create-home --group tomcat || true", // Ensure tomcat user
-      `sudo chown -R tomcat:tomcat ${TOMCAT_DIR}`,
-      `sudo chmod -R 755 ${TOMCAT_DIR}`,
-      `sudo chmod -R +x ${TOMCAT_DIR}/bin/*.sh`, // Make scripts executable
+    // Ensure necessary commands are installed
+    const installCommands = [
+      "sudo apt update", // Update package index
+      "sudo apt install -y wget", // Ensure wget is installed
+      `sudo mkdir -p ${tomcatDir}`, // Create Tomcat directory
     ];
 
-    exec(commands.join(" && "), (error, stdout, stderr) => {
+    const tomcatCommands = [
+      `sudo wget -q ${tomcatUrl} -O ${tempTarFile}`, // Download Tomcat tarball
+      `sudo tar -xzf ${tempTarFile} -C ${tomcatDir} --strip-components=1`, // Extract Tomcat tarball
+      `rm -f ${tempTarFile}`, // Clean up the tarball file
+      "sudo adduser --system --no-create-home --group tomcat || true", // Ensure tomcat user
+      `sudo chown -R tomcat:tomcat ${tomcatDir}`, // Set ownership
+      `sudo chmod -R 755 ${tomcatDir}`, // Set permissions
+      `sudo chmod -R +x ${tomcatDir}/bin/*.sh`, // Make scripts executable
+    ];
+
+    exec(installCommands.concat(tomcatCommands).join(" && "), (error, stdout, stderr) => {
       if (error) {
         return reject(`❌ Tomcat installation failed: ${stderr}`);
       }
-      console.log(`✅ Tomcat 9.0.98 installed successfully: ${stdout}`);
+      console.log(`✅ Apache Tomcat ${tomcatVersion} installed successfully: ${stdout}`);
 
       // Ensure the systemd service file exists
-      if (!fs.existsSync(SERVICE_FILE_PATH)) {
+      if (!fs.existsSync(serviceFilePath)) {
         console.log("⚠️ Tomcat service file not found. Creating a new one...");
 
         const serviceFileContent = `
 [Unit]
-Description=Apache Tomcat 9.0.98
+Description=Apache Tomcat ${tomcatVersion}
 After=network.target
 
 [Service]
 User=tomcat
 Group=tomcat
-Environment="JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
-Environment="CATALINA_HOME=${TOMCAT_DIR}"
-ExecStart=${TOMCAT_DIR}/bin/catalina.sh run
-ExecStop=${TOMCAT_DIR}/bin/shutdown.sh
+Environment="JAVA_HOME=/opt/openjdk-${javaVersion}"
+Environment="CATALINA_HOME=${tomcatDir}"
+ExecStart=${tomcatDir}/bin/catalina.sh run
+ExecStop=${tomcatDir}/bin/shutdown.sh
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
-        `;
+`;
 
-        fs.writeFileSync(SERVICE_FILE_PATH, serviceFileContent);
-        console.log(`✅ Created new Tomcat service file: ${SERVICE_FILE_PATH}`);
+
+        fs.writeFileSync(serviceFilePath, serviceFileContent);
+        console.log(`✅ Created new Tomcat service file: ${serviceFilePath}`);
       } else {
         console.log("✅ Tomcat service file already exists.");
       }
 
       // Ensure correct permissions & restart Tomcat
-      exec(`sudo chmod 644 ${SERVICE_FILE_PATH}`, (permErr) => {
+      exec(`sudo chmod 644 ${serviceFilePath}`, (permErr) => {
         if (permErr) {
-          return reject(
-            "❌ Failed to set correct permissions for Tomcat service file."
-          );
+          return reject("❌ Failed to set correct permissions for Tomcat service file.");
         }
         console.log("✅ Permissions set successfully for Tomcat service file.");
 
         exec(
-          "sudo systemctl daemon-reload && sudo systemctl enable tomcat9 && sudo systemctl restart tomcat9",
+          `sudo systemctl daemon-reload && sudo systemctl enable tomcat-${tomcatVersion} && sudo systemctl restart tomcat-${tomcatVersion}`,
           (restartErr, restartStdout, restartStderr) => {
             if (restartErr) {
               console.error("❌ Tomcat restart failed:", restartStderr);
@@ -148,5 +147,4 @@ WantedBy=multi-user.target
     });
   });
 }
-
-module.exports = { installJava, installTomcat };
+module.exports = { installJava, installTomcat  };
