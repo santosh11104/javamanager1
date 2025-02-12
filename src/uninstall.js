@@ -1,175 +1,102 @@
-/**
- * Uninstalls all installed Java versions on the system.
- *
- * This function first checks for installed OpenJDK packages using `dpkg`, then uninstalls them using `apt remove`. It also cleans up Java directories in `/usr/lib/jvm` and removes the `JAVA_HOME` environment variable. Finally, it reloads the system environment variables.
- *
- * @returns {Promise<void>} A Promise that resolves when the Java uninstallation is complete.
- */
-async function uninstallJava() {
-  // Function implementation
-}
-
-/**
- * Uninstalls all installed Tomcat versions on the system.
- *
- * This function detects and removes all Tomcat services, stops and disables them, removes the service files, kills any running Tomcat processes, and removes the Tomcat directories. Finally, it reloads the systemd daemon.
- *
- * @returns {Promise<void>} A Promise that resolves when the Tomcat uninstallation is complete.
- */
-async function uninstallTomcat() {
-  // Function implementation
-}
 const { exec } = require("child_process");
-
-// Function to uninstall all Java versions
-
 const fs = require("fs");
 const path = require("path");
 
-// Function to uninstall Java completely
-
-
-// Function to uninstall Java completely
+/**
+ * Uninstalls Java by removing its installation directory and cleaning up environment variables.
+ * This does not use dpkg but instead removes files from /opt and environment variables.
+ */
 async function uninstallJava() {
   return new Promise((resolve, reject) => {
-    console.log("Checking installed Java versions...");
+    console.log("🚀 Uninstalling Java...");
 
-    exec("dpkg -l | grep -i openjdk || true", (dpkgError, dpkgStdout) => {
-      if (dpkgError) {
-        console.warn("Warning: Could not list Java versions. Skipping package-based uninstallation.");
+    const commands = [
+      "sudo rm -rf /opt/openjdk-*", // Remove all Java installations in /opt
+      "sudo sed -i '/JAVA_HOME/d' /etc/environment", // Remove JAVA_HOME from system environment
+      "sudo sed -i '/JAVA_HOME/d' /etc/profile",
+      "sed -i '/JAVA_HOME/d' ~/.bashrc",
+      "sed -i '/JAVA_HOME/d' ~/.bash_profile",
+      "sed -i '/JAVA_HOME/d' ~/.zshrc || true",
+      "unset JAVA_HOME", // Unset JAVA_HOME for current session
+      ". /etc/environment && . ~/.bashrc" // Reload environment variables
+    ];
+
+    exec(commands.join(" && "), (error, stdout, stderr) => {
+      if (error) {
+        console.error(`❌ Java uninstallation failed: ${stderr}`);
+        return reject(error);
       }
+      console.log("✅ Java uninstalled successfully.");
+      resolve();
+    });
+  });
+}
 
-      if (!dpkgStdout || dpkgStdout.trim() === "") {
-        console.log("No OpenJDK packages found via dpkg. Skipping Java uninstallation.");
-        return resolve();
+/**
+ * Uninstalls Tomcat by stopping services, removing files from /opt, and cleaning up system configurations.
+ */
+
+
+/**
+ * Executes a shell command and returns a Promise.
+ */
+function runCommand(cmd) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`❌ Error: ${stderr || error.message}`);
+        return reject(error);
       }
-
-      const javaPackages = dpkgStdout
-        .trim()
-        .split("\n")
-        .map(line => {
-          const parts = line.split(/\s+/);
-          return parts[1]; // Extract package name
-        })
-        .filter(pkg => pkg && pkg.includes("openjdk"));
-
-      if (javaPackages.length === 0) {
-        console.log("No OpenJDK packages found. Skipping Java uninstallation.");
-        return resolve();
-      }
-
-      console.log("Uninstalling Java packages:", javaPackages.join(", "));
-
-      const uninstallCommands = javaPackages
-        .map(pkg => `sudo apt remove --purge -y ${pkg}`)
-        .join(" && ");
-
-      exec(uninstallCommands, (error, stdout, stderr) => {
-        if (error) {
-          console.warn(`Warning: Java package uninstallation failed: ${stderr}`);
-        } else {
-          console.log("Java packages removed successfully.");
-        }
-
-        console.log("Cleaning up Java directories in /usr/lib/jvm...");
-        exec("sudo rm -rf /usr/lib/jvm/java-*", (rmError, rmStdout, rmStderr) => {
-          if (rmError) {
-            console.warn(`Warning: Failed to clean Java directories: ${rmStderr}`);
-          } else {
-            console.log("Java directories removed.");
-          }
-
-          console.log("Removing JAVA_HOME from system environment...");
-          const removeJavaHomeCommands = [
-            "sudo sed -i '/JAVA_HOME/d' /etc/environment",
-            "sudo sed -i '/JAVA_HOME/d' /etc/profile",
-            "sed -i '/JAVA_HOME/d' ~/.bashrc",
-            "sed -i '/JAVA_HOME/d' ~/.bash_profile",
-            "sed -i '/JAVA_HOME/d' ~/.zshrc || true",
-            "unset JAVA_HOME"
-          ].join(" && ");
-
-          exec(removeJavaHomeCommands, (envError, envStdout, envStderr) => {
-            if (envError) {
-              console.warn(`Warning: Failed to remove JAVA_HOME: ${envStderr}`);
-            } else {
-              console.log("JAVA_HOME removed from environment.");
-            }
-
-            console.log("Reloading environment variables...");
-            exec("source /etc/environment && source ~/.bashrc", () => {
-              console.log("Environment variables reloaded.");
-              exec("sudo apt autoremove -y && sudo apt autoclean -y", () => {
-                console.log("Java cleanup completed.");
-                resolve();
-              });
-            });
-          });
-        });
-      });
+      console.log(`✅ Success: ${stdout.trim()}`);
+      resolve(stdout.trim());
     });
   });
 }
 
 
-
-
-
-// Function to uninstall all Tomcat versions
+/**
+ * Uninstalls Tomcat by stopping services, removing files, and cleaning up environment variables.
+ */
 async function uninstallTomcat() {
-  return new Promise((resolve, reject) => {
-    console.log("Detecting and removing all Tomcat services...");
+  console.log("🚀 Uninstalling Tomcat...");
 
-    const commands = [
-      // Stop and disable services (correctly using sudo with xargs)
-      `systemctl --user list-units --type=service | grep tomcat | grep -v '●' | awk '{print $1}' | xargs -I {} sudo systemctl --user stop {} || true`,
-      `systemctl list-units --type=service | grep tomcat | grep -v '●' | awk '{print $1}' | xargs -I {} sudo systemctl stop {} || true`,
-      `systemctl --user list-units --type=service | grep tomcat | grep -v '●' | awk '{print $1}' | xargs -I {} sudo systemctl --user disable {} || true`,
-      `systemctl list-units --type=service | grep tomcat | grep -v '●' | awk '{print $1}' | xargs -I {} sudo systemctl disable {} || true`,
+  try {
+    // Stop and disable Tomcat services safely
+    await runCommand("sudo systemctl list-units --type=service | grep -q 'tomcat' && sudo systemctl stop tomcat-*.service || true");
+    await runCommand("sudo systemctl list-unit-files | grep -q 'tomcat' && sudo systemctl disable tomcat-*.service || true");
 
-      // Remove service files
-      "sudo rm -f /etc/systemd/system/tomcat*.service",
-      "sudo rm -f /lib/systemd/system/tomcat*.service",
-      "sudo rm -f ~/.config/systemd/user/tomcat*.service",
+    // Reload systemd to apply changes
+    await runCommand("sudo systemctl daemon-reexec || true");
+    await runCommand("sudo systemctl daemon-reload || true");
 
-      // Kill Tomcat processes
-      "ps aux | grep -i tomcat | grep -v grep | awk '{print $2}' | xargs -I {} sudo kill -9 {}",
+    // Remove Tomcat service files
+    await runCommand("sudo rm -f /etc/systemd/system/tomcat-*.service");
+    await runCommand("sudo rm -f /lib/systemd/system/tomcat-*.service");
 
-      // Remove Tomcat directories
-      "sudo rm -rf /usr/share/tomcat* /var/lib/tomcat* /etc/tomcat* /opt/tomcat10 || true",
+    // Kill any running Tomcat processes
+     // Kill Tomcat processes
+     await runCommand("ps aux | grep -i tomcat | grep -v grep | awk '{print $2}' | xargs -I {} sudo kill -9 {}");
+   
+    //await runCommand("sudo rm -rf /opt/tomcat-*");
+    await runCommand("sudo /bin/rm -rf /usr/share/tomcat-* /var/lib/tomcat-* /etc/tomcat-* /opt/tomcat-* || true");
+    await runCommand("pgrep -f tomcat && sudo pkill -f tomcat || true");
 
-      // Reload systemd daemon
-      "sudo systemctl daemon-reload",
-      "sudo systemctl --user daemon-reload", // No sudo for user-level daemon-reload
-    ];
+    // Remove Tomcat-related environment variables
+    await runCommand("sudo sed -i '/CATALINA_HOME/d' /etc/environment");
+    await runCommand("sudo sed -i '/CATALINA_HOME/d' /etc/profile");
+    await runCommand("sed -i '/CATALINA_HOME/d' ~/.bashrc");
+    await runCommand("sed -i '/CATALINA_HOME/d' ~/.bash_profile");
+    await runCommand("sed -i '/CATALINA_HOME/d' ~/.zshrc || true");
 
-
-    // Execute commands sequentially
-    const executeNextCommand = async (index) => {
-      if (index >= commands.length) {
-        return resolve(); // All commands completed
-      }
-
-      const command = commands[index];
-      console.log(`Executing: ${command}`); // Log the command being executed
-
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error executing command: ${command}`);
-          console.error(stderr); // Log stderr for debugging
-          // DO NOT REJECT HERE.  Let the script continue to try and remove other tomcat instances.
-        } else {
-          console.log(stdout);
-        }
-        executeNextCommand(index + 1); // Execute the next command regardless of the error
-      });
-    };
-
-    executeNextCommand(0); // Start the chain of command execution
-  });
+    console.log("✅ Tomcat uninstalled successfully.");
+  } catch (error) {
+    console.error("❌ Tomcat uninstallation failed.");
+  }
 }
+
+
+
 
 
 // Export functions
 module.exports = { uninstallJava, uninstallTomcat };
- 
