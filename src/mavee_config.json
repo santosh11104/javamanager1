@@ -1,18 +1,20 @@
 {
-    "mave": {
-        "version": "1.0.1",
-        "packageUrl": "",
-        "dependencies": {
-            "java": {
-                "version": "18",
-                "packageUrlUnix": "https://download.java.net/openjdk/jdk18/ri/openjdk-18+36_linux-x64_bin.tar.gz"
-            },
-            "tomcat": {
-                "version10": "10.1.34",
-                "version": "11.0.3",
-                "packageUrlUnix10": "https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.34/bin/apache-tomcat-10.1.34.tar.gz",
-                "packageUrlUnix": "https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.3/bin/apache-tomcat-11.0.3.tar.gz"
-            }
-        }
+  "mave": {
+    "version": "1.0.1",
+    "packageUrl": "",
+    "dependencies": {
+      "java": {
+        "versionInstall": "12",
+        "versionUpgrade": "12",
+        "packageUrlUnixInstall": "https://download.java.net/openjdk/jdk11.0.0.2/ri/openjdk-11.0.0.2_linux-x64.tar.gz",
+        "packageUrlUnixUpgrade": "https://download.java.net/openjdk/jdk12/ri/openjdk-12+32_linux-x64_bin.tar.gz"
+      },
+      "tomcat": {
+        "versionInstall": "10.1.35",
+        "versionUpgrade": "10.1.35",
+        "packageUrlUnixInstall": "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.99/bin/apache-tomcat-9.0.99.tar.gz",
+        "packageUrlUnixUpgrade": "https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.35/bin/apache-tomcat-10.1.35.tar.gz"
+      }
     }
+  }
 }
