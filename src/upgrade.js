@@ -172,25 +172,38 @@ async function upgrade() {
     try {
         console.log("Starting upgrade process...");
 
-        const configPath = path.join(__dirname, "mavee_config.json");
+        const configPath = path.join(__dirname, "mavee_config_upgrade.json");
         const configData = fs.readFileSync(configPath, "utf-8");
         const config = JSON.parse(configData);
 
-        const javaVersion = config.mave.dependencies.java.versionUpgrade;
-        const tomcatVersion = config.mave.dependencies.tomcat.versionUpgrade;
-        const tomcatUrl = config.mave.dependencies.tomcat.packageUrlUnixUpgrade;
-        const javaUrl = config.mave.dependencies.java.packageUrlUnixUpgrade;
+        // Get current versions and URLs from config file
+        const currentJavaVersion = config.mave.dependencies.java.version;
+        const currentJavaUrl = config.mave.dependencies.java.packageUrlUnix;
+        const currentTomcatVersion = config.mave.dependencies.tomcat.version;
+        const currentTomcatUrl = config.mave.dependencies.tomcat.packageUrlUnix;
 
-        const previousJavaVersion = config.mave.dependencies.java.versionInstall;
-        const previousTomcatVersion = config.mave.dependencies.tomcat.versionInstall;
+        // Backup using current versions
+        console.log("Backing up current versions...");
+        if (fs.existsSync(`/opt/openjdk-${currentJavaVersion}`)) {
+            await createBackup(`/opt/openjdk-${currentJavaVersion}`, `/opt/java_backups/openjdk-${currentJavaVersion}`);
+            console.log(`Backed up Java ${currentJavaVersion}`);
+        } else {
+            console.warn(`Java ${currentJavaVersion} not found for backup.`);
+        }
 
-        // *** THIS IS THE KEY CHANGE ***
-        await upgradeJava(javaVersion, javaUrl, previousJavaVersion); // Pass the variables
-        await upgradeTomcat(tomcatVersion, tomcatUrl, previousTomcatVersion, javaVersion); // Pass the variables
+        if (fs.existsSync(`/opt/tomcat-${currentTomcatVersion}`)) {
+            await createBackup(`/opt/tomcat-${currentTomcatVersion}`, `/opt/tomcat_backups/tomcat-${currentTomcatVersion}`);
+            console.log(`Backed up Tomcat ${currentTomcatVersion}`);
+        } else {
+            console.warn(`Tomcat ${currentTomcatVersion} not found for backup.`);
+        }
 
-       // config.mave.dependencies.java.versionInstall = javaVersion;
-        // config.mave.dependencies.tomcat.versionInstall = tomcatVersion;
-       // fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+        // Upgrade using the new versions (which are now the current versions)
+        console.log("Performing upgrade...");
+
+        await upgradeJava(currentJavaVersion, currentJavaUrl, currentJavaVersion); // Use current versions for upgrade
+        await upgradeTomcat(currentTomcatVersion, currentTomcatUrl, currentTomcatVersion, currentJavaVersion);
 
         console.log("Upgrade completed successfully!");
 

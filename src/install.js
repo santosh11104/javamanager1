@@ -4,12 +4,12 @@ const path = require("path");
 const https = require("https");
 
 // Path to the JSON configuration file
-const configPath = path.join(__dirname, "mavee_config.json"); // Adjust the path as needed
+const configPath = path.join(__dirname, "mavee_config_install.json"); // Adjust the path as needed
 
 // Read configuration from the JSON file
 const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-const javaVersion = config.mave.dependencies.java.versionInstall;
-const javaUrl = config.mave.dependencies.java.packageUrlUnixInstall;
+const javaVersion = config.mave.dependencies.java.version;
+const javaUrl = config.mave.dependencies.java.packageUrlUnix;
 
 // Function to install Java from the URL specified in the JSON file
   async function installJava() {
@@ -60,8 +60,8 @@ const javaUrl = config.mave.dependencies.java.packageUrlUnixInstall;
     });
   }
 
-const tomcatVersion = config.mave.dependencies.tomcat.versionInstall;
-const tomcatUrl = config.mave.dependencies.tomcat.packageUrlUnixInstall;
+const tomcatVersion = config.mave.dependencies.tomcat.version;
+const tomcatUrl = config.mave.dependencies.tomcat.packageUrlUnix;
 
 // Function to install Tomcat from the URL specified in the JSON file
 async function installTomcat() {

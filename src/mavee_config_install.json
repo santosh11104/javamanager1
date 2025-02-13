@@ -1,0 +1,16 @@
+{
+  "mave": {
+    "version": "1.0.1",
+    "packageUrl": "",
+    "dependencies": {
+      "java": {
+        "version": "18",
+        "packageUrlUnix": "https://download.java.net/openjdk/jdk18/ri/openjdk-18+36_linux-x64_bin.tar.gz"
+      },
+      "tomcat": {
+        "version": "9.0.99",
+        "packageUrlUnix": "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.99/bin/apache-tomcat-9.0.99.tar.gz"
+      }
+    }
+  }
+}
