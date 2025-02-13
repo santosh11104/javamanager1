@@ -23,7 +23,7 @@ async function createBackup(source, destination) {
             await runCommand(`sudo rm -rf ${destination}`);
         }
         console.log(`Creating backup: ${source} -> ${destination}`);
-        await runCommand(`sudo cp -r ${source} ${destination}`); // Use cp for backups
+        await runCommand(`sudo cp -r ${source} ${destination}`); // Use cp -r for directories
     } catch (error) {
         console.error(`Backup creation failed: ${error}`);
         throw error;
@@ -34,10 +34,15 @@ async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
     const javaDir = `/opt/openjdk-${javaVersion}`;
     const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
     const previousJavaDir = `/opt/openjdk-${previousJavaVersion}`;
+    const javaBackupsDir = `/opt/java_backups`; // Directory for Java backups
 
     try {
+        await runCommand(`sudo mkdir -p ${javaBackupsDir}`); // Create backups directory if it doesn't exist
+
         if (fs.existsSync(previousJavaDir)) {
-            await createBackup(previousJavaDir, `/opt/java_backup_${previousJavaVersion}`);
+            const backupDest = path.join(javaBackupsDir, `openjdk-${previousJavaVersion}`); // Full backup path
+            await createBackup(previousJavaDir, backupDest);
+            await runCommand(`sudo rm -rf ${previousJavaDir}`); // Remove after successful backup
         } else {
             console.log("No previous Java installation found. Skipping backup.");
         }
@@ -76,15 +81,15 @@ async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
         await runCommand(`rm -f ${tempTarFile}`);
 
         const envCommands = `
-        sudo sed -i '/^JAVA_HOME=/d' /etc/environment &&
-        sudo sed -i '/^export JAVA_HOME=/d' /etc/profile &&
-        sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile &&
-        echo 'JAVA_HOME="${javaDir}"' | sudo tee -a /etc/environment &&
-        echo 'export JAVA_HOME="${javaDir}"' | sudo tee -a /etc/profile &&
-        echo 'export PATH="$JAVA_HOME/bin:$PATH"' | sudo tee -a /etc/profile &&
-        . /etc/profile
-    `;
-    await runCommand(envCommands); // Run all env commands together
+            sudo sed -i '/^JAVA_HOME=/d' /etc/environment &&
+            sudo sed -i '/^export JAVA_HOME=/d' /etc/profile &&
+            sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile &&
+            echo 'JAVA_HOME="${javaDir}"' | sudo tee -a /etc/environment &&
+            echo 'export JAVA_HOME="${javaDir}"' | sudo tee -a /etc/profile &&
+            echo 'export PATH="$JAVA_HOME/bin:$PATH"' | sudo tee -a /etc/profile &&
+            . /etc/profile
+        `;
+        await runCommand(envCommands);
 
         console.log(`✅ Java ${javaVersion} upgraded successfully.`);
 
@@ -94,17 +99,25 @@ async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
     }
 }
 
+
 async function upgradeTomcat(tomcatVersion, tomcatUrl, previousTomcatVersion, javaVersion) {
     const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
     const tempTarFile = `/tmp/tomcat-${tomcatVersion}.tar.gz`;
     const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
+    const tomcatBackupsDir = `/opt/tomcat_backups`;
 
     try {
-        if (tomcatVersion === previousTomcatVersion) {
-            throw new Error("Tomcat version is the same as the current version. Upgrade not needed.");
-        }
+        await runCommand(`sudo mkdir -p ${tomcatBackupsDir}`);
 
-        await createBackup(`/opt/tomcat-${previousTomcatVersion}`, `/opt/tomcat_backup_${previousTomcatVersion}`);
+        const previousTomcatDir = `/opt/tomcat-${previousTomcatVersion}`; // Store path in variable
+
+        if (fs.existsSync(previousTomcatDir)) {
+            const backupDest = path.join(tomcatBackupsDir, `tomcat-${previousTomcatVersion}`);
+            await createBackup(previousTomcatDir, backupDest);
+            await runCommand(`sudo rm -rf ${previousTomcatDir}`);
+        } else {
+            console.warn(`Previous Tomcat version ${previousTomcatVersion} not found. Skipping backup and removal.`);
+        }
 
         console.log(`🚀 Upgrading Tomcat ${tomcatVersion} from ${tomcatUrl}...`);
 
