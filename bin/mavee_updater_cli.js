@@ -7,18 +7,7 @@ const { uninstallJava, uninstallTomcat } = require("../src/uninstall");
 const { upgrade } = require("../src/upgrade");
 const { rollbackJava, rollbackTomcat } = require("../src/rollback");
 
-const MAVEESERVER_URL = "http://127.0.0.1:3000/version";
-
-async function fetchVersions() {
-  try {
-    console.log("Fetching required versions from Mavee Server...");
-    const response = await axios.get(MAVEESERVER_URL);
-    return response.data; // { java: "21", tomcat: "10.1.15" }
-  } catch (error) {
-    console.error("Failed to fetch versions from Mavee Server:", error.message);
-    process.exit(1);
-  }
-}
+ 
 
 async function safeAction(action, actionName) {
   try {
@@ -39,27 +28,17 @@ program
     await installTomcat();
   }, "Installation"));
 
-program
+  program
   .command("upgrade")
-  .description("Upgrade Java and Tomcat based on Mavee requirements")
+  .description("Upgrade Java and Tomcat based on mavee_config.json")
   .action(async () => {
     console.log("Starting upgrade process...");
-    const versions = await fetchVersions();
     try {
-      console.log(`Upgrading Java to version ${versions.java} and Tomcat to ${versions.tomcat}...`);
-      await upgrade(versions.java, versions.tomcat);
+      await upgrade();
       console.log("Upgrade completed successfully!");
       process.exit(0);
     } catch (error) {
-      console.error("Upgrade failed:", error);
-      console.log("Rolling back to previous versions...");
-      try {
-        await rollbackJava();
-        await rollbackTomcat();
-        console.log("Rollback successful.");
-      } catch (rollbackError) {
-        console.error("Rollback failed:", rollbackError);
-      }
+      console.error("Upgrade failed:", error.message);
       process.exit(1);
     }
   });

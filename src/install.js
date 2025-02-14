@@ -4,7 +4,7 @@ const path = require("path");
 const https = require("https");
 
 // Path to the JSON configuration file
-const configPath = path.join(__dirname, "mavee_config.json"); // Adjust the path as needed
+const configPath = path.join(__dirname, "mavee_config_install.json"); // Adjust the path as needed
 
 // Read configuration from the JSON file
 const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
@@ -12,53 +12,53 @@ const javaVersion = config.mave.dependencies.java.version;
 const javaUrl = config.mave.dependencies.java.packageUrlUnix;
 
 // Function to install Java from the URL specified in the JSON file
-async function installJava() {
-  return new Promise((resolve, reject) => {
-    console.log(`🚀 Installing Java ${javaVersion} from ${javaUrl}...`);
+  async function installJava() {
+    return new Promise((resolve, reject) => {
+      console.log(`🚀 Installing Java ${javaVersion} from ${javaUrl}...`);
 
-    // Define the command to download and install Java
-    const javaDir = `/opt/openjdk-${javaVersion}`;
-    const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
+      // Define the command to download and install Java
+      const javaDir = `/opt/openjdk-${javaVersion}`;
+      const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
 
-    // Ensure the path is quoted properly for Java directories
-   /* const commands = [
-      `sudo apt update`, // Update package index
-      `sudo mkdir -p "${javaDir}"`, // Ensure the directory for Java exists
-      `sudo wget -q "${javaUrl}" -O "${tempTarFile}"`, // Download Java tarball
-      `sudo tar -xzf "${tempTarFile}" -C "${javaDir}" --strip-components=1`, // Extract Java tarball
-      `rm -f "${tempTarFile}"`, // Remove the tarball file after extraction
-      `echo 'JAVA_HOME="${javaDir}"' | sudo tee /etc/environment`, // Set JAVA_HOME
-      `echo 'export JAVA_HOME="${javaDir}"' | sudo tee -a /etc/profile`, // Set JAVA_HOME in profile
-      `echo 'export PATH=\$JAVA_HOME/bin:\$PATH' | sudo tee -a /etc/profile`, // Update PATH
-      `. /etc/profile`, // Reload profile
-    ];*/
-    const commands = `
-      sudo apt update &&
-      sudo mkdir -p /opt &&
-      sudo wget -q ${javaUrl} -O /tmp/java.tar.gz &&
-      sudo tar -xzf /tmp/java.tar.gz -C /opt &&
-      extracted_folder=$(ls /opt | grep 'jdk' | head -n 1) &&
-      sudo rm -rf /opt/openjdk-${javaVersion} &&
-      sudo mv /opt/$extracted_folder /opt/openjdk-${javaVersion} &&
-      rm -f /tmp/java.tar.gz &&
-      echo 'JAVA_HOME="/opt/openjdk-${javaVersion}"' | sudo tee /etc/environment &&
-      echo 'export JAVA_HOME="/opt/openjdk-${javaVersion}"' | sudo tee -a /etc/profile &&
-      echo 'export PATH="$JAVA_HOME/bin:$PATH"' | sudo tee -a /etc/profile &&
-      . /etc/profile  # Use dot instead of source
-    `;
+      // Ensure the path is quoted properly for Java directories
+    /* const commands = [
+        `sudo apt update`, // Update package index
+        `sudo mkdir -p "${javaDir}"`, // Ensure the directory for Java exists
+        `sudo wget -q "${javaUrl}" -O "${tempTarFile}"`, // Download Java tarball
+        `sudo tar -xzf "${tempTarFile}" -C "${javaDir}" --strip-components=1`, // Extract Java tarball
+        `rm -f "${tempTarFile}"`, // Remove the tarball file after extraction
+        `echo 'JAVA_HOME="${javaDir}"' | sudo tee /etc/environment`, // Set JAVA_HOME
+        `echo 'export JAVA_HOME="${javaDir}"' | sudo tee -a /etc/profile`, // Set JAVA_HOME in profile
+        `echo 'export PATH=\$JAVA_HOME/bin:\$PATH' | sudo tee -a /etc/profile`, // Update PATH
+        `. /etc/profile`, // Reload profile
+      ];*/
+      const commands = `
+        sudo apt update &&
+        sudo mkdir -p /opt &&
+        sudo wget -q ${javaUrl} -O /tmp/java.tar.gz &&
+        sudo tar -xzf /tmp/java.tar.gz -C /opt &&
+        extracted_folder=$(ls /opt | grep 'jdk' | head -n 1) &&
+        sudo rm -rf /opt/openjdk-${javaVersion} &&
+        sudo mv /opt/$extracted_folder /opt/openjdk-${javaVersion} &&
+        rm -f /tmp/java.tar.gz &&
+        echo 'JAVA_HOME="/opt/openjdk-${javaVersion}"' | sudo tee /etc/environment &&
+        echo 'export JAVA_HOME="/opt/openjdk-${javaVersion}"' | sudo tee -a /etc/profile &&
+        echo 'export PATH="$JAVA_HOME/bin:$PATH"' | sudo tee -a /etc/profile &&
+        . /etc/profile  # Use dot instead of source
+      `;
 
-    exec(commands, { shell: "/bin/bash" }, (error, stdout, stderr) => {  // <-- Use bash shell
-      if (error) {
-        console.error(`❌ Java installation failed: ${stderr}`);
-         
-        reject(stderr);
-      } else {
-        console.log(`✅ Java ${javaVersion} installed successfully.`);
-        resolve(stdout);
-      }
+      exec(commands, { shell: "/bin/bash" }, (error, stdout, stderr) => {  // <-- Use bash shell
+        if (error) {
+          console.error(`❌ Java installation failed: ${stderr}`);
+          
+          reject(stderr);
+        } else {
+          console.log(`✅ Java ${javaVersion} installed successfully.`);
+          resolve(stdout);
+        }
+      });
     });
-  });
-}
+  }
 
 const tomcatVersion = config.mave.dependencies.tomcat.version;
 const tomcatUrl = config.mave.dependencies.tomcat.packageUrlUnix;
