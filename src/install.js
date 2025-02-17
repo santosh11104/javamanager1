@@ -147,4 +147,33 @@ WantedBy=multi-user.target
     });
   });
 }
-module.exports = { installJava, installTomcat  };
+async function createPreviousVersionsFile(javaVersion, tomcatVersion) {
+  const versionsFilePath = path.join(__dirname, "previous_versions.json");
+  const installData = { // Correct format
+    install: {
+        java: javaVersion,
+        tomcat: tomcatVersion
+    }
+};
+
+  try {
+      fs.writeFileSync(versionsFilePath, JSON.stringify(installData, null, 2));
+      console.log("previous_versions.json created/updated successfully.");
+  } catch (error) {
+      console.error("Error creating/updating previous_versions.json:", error);
+  }
+}
+async function install() {
+  try {
+      await installJava();
+      await installTomcat();
+
+      // After successful installation, create/update previous_versions.json
+      await createPreviousVersionsFile(javaVersion, tomcatVersion);
+      console.log("Installation and previous_versions.json update complete.");
+
+  } catch (error) {
+      console.error("Installation process failed:", error);
+  }
+}
+module.exports = { install };

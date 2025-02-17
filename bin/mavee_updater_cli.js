@@ -2,21 +2,21 @@
 
 const { program } = require("commander");
 const axios = require("axios");
-const { installJava, installTomcat } = require("../src/install");
+const { install } = require("../src/install");
 const { uninstallJava, uninstallTomcat } = require("../src/uninstall");
 const { upgrade } = require("../src/upgrade");
-const { rollbackJava, rollbackTomcat } = require("../src/rollback");
+const { rollback } = require("../src/rollback");
 
  
 
 async function safeAction(action, actionName) {
   try {
-    console.log(`Starting ${actionName}...`);
-    await action();
-    console.log(`${actionName} completed successfully!`);
+      console.log(`Starting ${actionName}...`);
+      await action();
+      console.log(`${actionName} completed successfully!`);
   } catch (error) {
-    console.error(`${actionName} failed:`, error);
-    process.exit(1);
+      console.error(`${actionName} failed:`, error.message || error); // Improved error message
+      process.exit(1);
   }
 }
 
@@ -24,8 +24,8 @@ program
   .command("install")
   .description("Install Java and Tomcat")
   .action(() => safeAction(async () => {
-    await installJava();
-    await installTomcat();
+    await install();
+    //await installTomcat();
   }, "Installation"));
 
   program
@@ -43,21 +43,10 @@ program
     }
   });
 
-program
-  .command("rollback")
-  .description("Rollback Java and Tomcat to previous versions")
-  .action(async () => {
-    console.log("Starting rollback process...");
-    try {
-      await rollbackJava();
-      await rollbackTomcat();
-      console.log("Rollback completed successfully!");
-      process.exit(0);
-    } catch (error) {
-      console.error("Rollback failed:", error);
-      process.exit(1);
-    }
-  });
+  program
+    .command("rollback")
+    .description("Rollback Java and Tomcat to previous versions")
+    .action(() => safeAction(rollback, "Rollback")); // Using safeAction (optional)
 
 program
   .command("uninstall")
