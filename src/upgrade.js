@@ -145,13 +145,13 @@ async function upgrade() {
       previousVersions.upgrade = previousVersions.upgrade || [];
     }
 
-    // ✅ Check if the upgrade already exists
-    const upgradeAlreadyExists = previousVersions.upgrade.some(
+    // ✅ Check if upgrade matches any of the two stored versions
+    const isUpgradeBlocked = previousVersions.upgrade.some(
       (entry) => entry.java === currentJavaVersion && entry.tomcat === currentTomcatVersion
     );
 
-    if (upgradeAlreadyExists) {
-      console.error(`❌ Upgrade failed: Java ${currentJavaVersion} and Tomcat ${currentTomcatVersion} are already installed.`);
+    if (isUpgradeBlocked) {
+      console.error(`❌ Upgrade failed: Java ${currentJavaVersion} and Tomcat ${currentTomcatVersion} are already in the upgrade history.`);
       return; // Stop execution
     }
 
@@ -165,7 +165,12 @@ async function upgrade() {
 
     console.log("Upgrade completed successfully!");
 
-    // ✅ Append new upgrade record without modifying "install"
+    // ✅ Maintain only the last 2 upgrade versions
+    if (previousVersions.upgrade.length >= 2) {
+      previousVersions.upgrade.shift(); // Remove the oldest entry
+    }
+
+    // ✅ Append the new upgrade version to the end
     previousVersions.upgrade.push({
       java: currentJavaVersion,
       tomcat: currentTomcatVersion,
@@ -178,7 +183,6 @@ async function upgrade() {
     console.error("Upgrade failed:", error);
   }
 }
-
 
 async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
   if (javaVersion === previousJavaVersion && previousJavaVersion !== null) {

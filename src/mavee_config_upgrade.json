@@ -4,6 +4,8 @@
     "packageUrl": "",
     "dependencies": {
       "java": {
+          "version18": "18",
+        "packageUrlUnix18": "https://download.java.net/openjdk/jdk18/ri/openjdk-18+36_linux-x64_bin.tar.gz",
         "version": "19",
         "packageUrlUnix": "https://download.java.net/openjdk/jdk19/ri/openjdk-19+36_linux-x64_bin.tar.gz",
          "version20": "20",
@@ -12,10 +14,10 @@
       "tomcat": {
         "version9": "9.0.99",
         "packageUrlUnix9": "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.99/bin/apache-tomcat-9.0.99.tar.gz",
-         "version": "10.1.35",
-        "packageUrlUnix": "https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.35/bin/apache-tomcat-10.1.35.tar.gz",
-         "version11": "11.0.3",
-        "packageUrlUnix11": "https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.3/bin/apache-tomcat-11.0.3.tar.gz"
+         "version10": "10.1.35",
+        "packageUrlUnix10": "https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.35/bin/apache-tomcat-10.1.35.tar.gz",
+         "version": "11.0.3",
+        "packageUrlUnix": "https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.3/bin/apache-tomcat-11.0.3.tar.gz"
         
       }
     }
