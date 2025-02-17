@@ -154,7 +154,7 @@ async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
     if (!extractedFolder) {
       throw new Error("Could not find extracted JDK folder.");
     }
-
+    await runCommand(`sudo rm -rf "${javaDir}"`); // Remove existing Java directory
     // *** The crucial fix: Create the javaDir *inside* the subshell
     await runCommand(`sudo mkdir -p "${javaDir}"`); // Create the target directory
 
@@ -286,87 +286,74 @@ WantedBy=multi-user.target
 }
 
 async function upgrade() {
-    try {
-        console.log("Starting upgrade process...");
+  try {
+    console.log("Starting upgrade process...");
 
-        const configPath = path.join(__dirname, "mavee_config_upgrade.json");
-        const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    const configPath = path.join(__dirname, "mavee_config_upgrade.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-        const versionsMatch = await checkAndSetPreviousVersions(config);
+    const versionsMatch = await checkAndSetPreviousVersions(config);
 
-        if (versionsMatch) {
-            console.log("No upgrade needed. Exiting.");
-            return;
-        }
+    if (versionsMatch) {
+        console.log("No upgrade needed. Exiting.");
+        return;
+    }
 
-        const currentJavaVersion = config.mave.dependencies.java.version;
-        const currentJavaUrl = config.mave.dependencies.java.packageUrlUnix;
-        const currentTomcatVersion = config.mave.dependencies.tomcat.version;
-        const currentTomcatUrl = config.mave.dependencies.tomcat.packageUrlUnix;
+    const currentJavaVersion = config.mave.dependencies.java.version;
+    const currentJavaUrl = config.mave.dependencies.java.packageUrlUnix;
+    const currentTomcatVersion = config.mave.dependencies.tomcat.version;
+    const currentTomcatUrl = config.mave.dependencies.tomcat.packageUrlUnix;
 
-        // Backup (only if previous versions exist)
-        console.log("Backing up current versions (if available)...");
-        const previousVersionsFilePath = path.join(__dirname, "previous_versions.json");
-        let previousVersions = {};
+    console.log("Backing up current versions (if available)...");
+    const previousVersionsFilePath = path.join(__dirname, "previous_versions.json");
+
+        let previousVersions = { install: { java: null, tomcat: null }, upgrade: [] }; // Default
 
         try {
             if (fs.existsSync(previousVersionsFilePath)) {
                 const fileData = fs.readFileSync(previousVersionsFilePath, "utf-8");
                 previousVersions = JSON.parse(fileData);
+
+                // *** The crucial fix: Ensure previousVersions.upgrade is an array ***
+                previousVersions.upgrade = previousVersions.upgrade || []; // Initialize if it is undefined
+                previousVersions.install = previousVersions.install || { java: null, tomcat: null }; // Initialize if it is undefined
             }
         } catch (parseError) {
             console.warn("Error parsing previous_versions.json. Using default structure.", parseError);
         }
 
-        previousVersions.install = previousVersions.install || { java: null, tomcat: null };
-        previousVersions.upgrade = previousVersions.upgrade || [];
+      console.log("Performing upgrade...");
 
-        if (fs.existsSync(`/opt/openjdk-${currentJavaVersion}`) && previousVersions.install?.java) { // Use install here
-            await createBackup(
-                `/opt/openjdk-${currentJavaVersion}`,
-                `/opt/java_backups/openjdk-${currentJavaVersion}`
-            );
-            console.log(`Backed up Java ${currentJavaVersion}`);
-        } else {
-            console.warn(`Java ${currentJavaVersion} not found for backup (or not previously installed).`);
-        }
+      const javaUpgradeNeeded = currentJavaVersion !== previousVersions.install?.java;
+        const tomcatUpgradeNeeded = currentTomcatVersion !== previousVersions.install?.tomcat;
 
-        if (fs.existsSync(`/opt/tomcat-${currentTomcatVersion}`) && previousVersions.install?.tomcat) { // Use install here
-            await createBackup(
-                `/opt/tomcat-${currentTomcatVersion}`,
-                `/opt/tomcat_backups/tomcat-${currentTomcatVersion}`
-            );
-            console.log(`Backed up Tomcat ${currentTomcatVersion}`);
-        } else {
-            console.warn(`Tomcat ${currentTomcatVersion} not found for backup (or not previously installed).`);
-        }
 
-        console.log("Performing upgrade...");
 
-        await upgradeJava(currentJavaVersion, currentJavaUrl, previousVersions.install?.java);
-        await upgradeTomcat(currentTomcatVersion, currentTomcatUrl, previousVersions.install?.tomcat, currentJavaVersion);
+      await upgradeJava(currentJavaVersion, currentJavaUrl, previousVersions.install?.java);
+      await upgradeTomcat(currentTomcatVersion, currentTomcatUrl, previousVersions.install?.tomcat, currentJavaVersion);
 
-        console.log("Upgrade completed successfully!");
+      console.log("Upgrade completed successfully!");
 
+      if (javaUpgradeNeeded || tomcatUpgradeNeeded) {
         const newConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
         const upgradedVersions = {
             java: newConfig.mave.dependencies.java.version,
             tomcat: newConfig.mave.dependencies.tomcat.version
         };
 
-        previousVersions.upgrade.push(upgradedVersions);
+        previousVersions.upgrade.push(upgradedVersions); // Now safe to push
+        previousVersions.install = { ...upgradedVersions };
 
         console.log("Updating previous_versions.json...");
-        fs.writeFileSync(
-            previousVersionsFilePath,
-            JSON.stringify(previousVersions, null, 2)
-        );
+        fs.writeFileSync(previousVersionsFilePath, JSON.stringify(previousVersions, null, 2));
         console.log("previous_versions.json updated.");
-
-    } catch (error) {
-        console.error("Upgrade failed:", error);
+    } else {
+        console.log("No actual upgrade performed, skipping previous_versions.json update.");
     }
-}
 
+} catch (error) {
+    console.error("Upgrade failed:", error);
+}
+}
 
 module.exports = { upgrade };
