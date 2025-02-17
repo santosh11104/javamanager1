@@ -1,4 +1,3 @@
-// rollback.js
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -7,7 +6,7 @@ function runCommand(command, shell = "/bin/bash") {
     return new Promise((resolve, reject) => {
         exec(command, { shell }, (error, stdout, stderr) => {
             if (error) {
-                console.error(`Command failed: ${command}`);
+                console.error(`❌ Command failed: ${command}`);
                 console.error(`Error: ${stderr}`);
                 reject(stderr || error.message);
             } else {
@@ -17,7 +16,7 @@ function runCommand(command, shell = "/bin/bash") {
     });
 }
 
-// Get the last upgrade version from previous_versions.json
+// Get the first upgrade version from previous_versions.json for rollback
 async function getRollbackVersion() {
     const versionsFilePath = path.join(__dirname, "previous_versions.json");
 
@@ -27,17 +26,21 @@ async function getRollbackVersion() {
 
     let previousVersions = JSON.parse(fs.readFileSync(versionsFilePath, "utf-8"));
 
-    if (!previousVersions.upgrade || previousVersions.upgrade.length === 0) {
-        throw new Error("🚨 No previous upgrade versions available to rollback.");
+    if (!previousVersions.upgrade || previousVersions.upgrade.length <= 1) {
+        console.error("🚨 Rollback aborted! At least two upgrade versions are required.");
+        return null;
     }
 
-    // Get the last upgrade entry
-    const lastUpgrade = previousVersions.upgrade.pop(); // Remove last upgrade entry
+    // Get the first upgrade entry to rollback
+    const rollbackVersion = previousVersions.upgrade[0]; // First item
 
-    // Save updated previous_versions.json after removing last upgrade entry
+    // Remove the last upgrade entry from the array
+    previousVersions.upgrade.pop();
+
+    // Save updated previous_versions.json
     fs.writeFileSync(versionsFilePath, JSON.stringify(previousVersions, null, 2));
 
-    return lastUpgrade; // { java: "19", tomcat: "10.1.35" }
+    return rollbackVersion; // { java: "19", tomcat: "10.1.35" }
 }
 
 // Function to rollback Java
@@ -88,30 +91,30 @@ async function rollbackTomcat(tomcatVersion) {
 
     const tomcatBackupDir = `/opt/tomcat_backups/tomcat-${tomcatVersion}`;
     const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
+    const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
 
-    // 🔎 If Tomcat exists in /opt/, no rollback needed
+    // 🔎 If Tomcat already exists, skip restoration
     if (fs.existsSync(tomcatDir)) {
-        console.log(`✅ Tomcat ${tomcatVersion} already exists in /opt/. Skipping rollback.`);
-        return;
+        console.log(`✅ Tomcat ${tomcatVersion} already exists in /opt/. Skipping restoration.`);
+    } else {
+        if (!fs.existsSync(tomcatBackupDir)) {
+            console.error(`🚨 Tomcat backup for version ${tomcatVersion} not found!`);
+            throw new Error(`Tomcat backup for version ${tomcatVersion} is missing.`);
+        }
+
+        // Stop all running Tomcat services
+        console.log("🛑 Stopping all Tomcat services...");
+        await runCommand(`sudo systemctl stop tomcat* || true`);
+        await runCommand(`sudo systemctl disable tomcat* || true`);
+
+        // Remove all other Tomcat versions
+        console.log("🗑️ Removing all other Tomcat versions...");
+        await runCommand(`sudo rm -rf /opt/tomcat-* /usr/share/tomcat-* /var/lib/tomcat-* /etc/tomcat-*`);
+
+        // Restore Tomcat from backup
+        console.log(`♻️ Restoring Tomcat ${tomcatVersion} from backup...`);
+        await runCommand(`sudo cp -r ${tomcatBackupDir} ${tomcatDir}`);
     }
-
-    if (!fs.existsSync(tomcatBackupDir)) {
-        console.error(`🚨 Tomcat backup for version ${tomcatVersion} not found!`);
-        throw new Error(`Tomcat backup for version ${tomcatVersion} is missing.`);
-    }
-
-    // Stop and disable all Tomcat services
-    console.log("🛑 Stopping all Tomcat services...");
-    await runCommand(`sudo systemctl stop tomcat* || true`);
-    await runCommand(`sudo systemctl disable tomcat* || true`);
-
-    // Remove all other Tomcat versions
-    console.log("🗑️ Removing all other Tomcat versions...");
-    await runCommand(`sudo rm -rf /opt/tomcat-* /usr/share/tomcat-* /var/lib/tomcat-* /etc/tomcat-*`);
-
-    // Restore Tomcat from backup
-    console.log(`♻️ Restoring Tomcat ${tomcatVersion} from backup...`);
-    await runCommand(`sudo cp -r ${tomcatBackupDir} ${tomcatDir}`);
 
     // Set correct permissions
     console.log("🔧 Setting Tomcat user permissions...");
@@ -121,7 +124,6 @@ async function rollbackTomcat(tomcatVersion) {
 
     // Restore Tomcat systemd service
     console.log("⚙️ Restoring Tomcat systemd service...");
-    const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
     const serviceFileContent = `
 [Unit]
 Description=Apache Tomcat ${tomcatVersion}
@@ -132,7 +134,7 @@ User=tomcat
 Group=tomcat
 Environment="JAVA_HOME=/opt/openjdk-${tomcatVersion}"
 Environment="CATALINA_HOME=${tomcatDir}"
-ExecStart=${tomcatDir}/bin/catalina.sh run
+ExecStart=${tomcatDir}/bin/startup.sh
 ExecStop=${tomcatDir}/bin/shutdown.sh
 Restart=always
 
@@ -141,28 +143,39 @@ WantedBy=multi-user.target
 `;
     fs.writeFileSync(serviceFilePath, serviceFileContent);
 
-    // Reload systemd and start Tomcat
+    // Reload systemd, enable, and start Tomcat
     console.log("🔄 Reloading systemd and starting Tomcat...");
     await runCommand(`sudo systemctl daemon-reload`);
     await runCommand(`sudo systemctl enable tomcat-${tomcatVersion}`);
     await runCommand(`sudo systemctl restart tomcat-${tomcatVersion}`);
 
-    console.log(`✅ Tomcat rollback to ${tomcatVersion} completed successfully.`);
+    // Ensure Tomcat service is running
+    console.log("🟢 Checking Tomcat service status...");
+    let serviceStatus;
+    try {
+        serviceStatus = await runCommand(`sudo systemctl is-active tomcat-${tomcatVersion}`);
+    } catch (error) {
+        console.warn("⚠️ Tomcat service is inactive or failed. Attempting manual start...");
+        await runCommand(`sudo ${tomcatDir}/bin/catalina.sh start`);
+    }
+
+    console.log(`✅ Tomcat ${tomcatVersion} rollback completed successfully.`);
 }
+
 
 // Main rollback function
 async function rollback() {
     try {
         console.log("🔄 Starting rollback process...");
 
-        // Get last upgrade version to rollback to
-        const lastUpgrade = await getRollbackVersion();
-        if (!lastUpgrade) {
+        // Get first upgrade version to rollback to
+        const rollbackVersion = await getRollbackVersion();
+        if (!rollbackVersion) {
             console.error("🚨 No upgrade versions found. Cannot rollback.");
             return;
         }
 
-        const { java: rollbackJavaVersion, tomcat: rollbackTomcatVersion } = lastUpgrade;
+        const { java: rollbackJavaVersion, tomcat: rollbackTomcatVersion } = rollbackVersion;
 
         console.log(`🔄 Rolling back Java to ${rollbackJavaVersion} and Tomcat to ${rollbackTomcatVersion}...`);
 
