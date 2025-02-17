@@ -145,6 +145,16 @@ async function upgrade() {
       previousVersions.upgrade = previousVersions.upgrade || [];
     }
 
+    // ✅ Check if the upgrade already exists
+    const upgradeAlreadyExists = previousVersions.upgrade.some(
+      (entry) => entry.java === currentJavaVersion && entry.tomcat === currentTomcatVersion
+    );
+
+    if (upgradeAlreadyExists) {
+      console.error(`❌ Upgrade failed: Java ${currentJavaVersion} and Tomcat ${currentTomcatVersion} are already installed.`);
+      return; // Stop execution
+    }
+
     console.log("Performing upgrade...");
 
     // ✅ Call Java Upgrade Function
@@ -168,6 +178,7 @@ async function upgrade() {
     console.error("Upgrade failed:", error);
   }
 }
+
 
 async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
   if (javaVersion === previousJavaVersion && previousJavaVersion !== null) {
