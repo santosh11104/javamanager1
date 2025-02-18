@@ -1,6 +1,7 @@
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { rollback } = require("./rollback"); // Import rollback function
 
 function runCommand(command, shell = "/bin/bash") {
   return new Promise((resolve, reject) => {
@@ -35,6 +36,7 @@ async function createBackup(source, destination) {
     throw error;
   }
 }
+
 async function getVersionsFromConfig(configPath) {
   try {
     if (!fs.existsSync(configPath)) {
@@ -68,7 +70,8 @@ async function getVersionsFromConfig(configPath) {
     throw error;
   }
 }
-async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
+
+async function upgradeJava(javaVersion, javaUrl) {
   const javaDir = `/opt/openjdk-${javaVersion}`;
   const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
   const javaBackupsDir = `/opt/java_backups`;
@@ -76,15 +79,13 @@ async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
   try {
     await runCommand(`sudo mkdir -p ${javaBackupsDir}`);
 
-    if (previousJavaVersion) {
-      const previousJavaDir = `/opt/openjdk-${previousJavaVersion}`;
-      const backupDest = path.join(javaBackupsDir, `openjdk-${previousJavaVersion}`);
-
-      if (fs.existsSync(previousJavaDir)) {
-        console.log(`📂 Backing up previous Java version: ${previousJavaVersion}`);
-        await createBackup(previousJavaDir, backupDest);
-        await runCommand(`sudo rm -rf ${previousJavaDir}`);
-      }
+    // Backup existing Java installation (if any)
+    const existingJavaDir = await runCommand(`ls /opt | grep 'openjdk-' | head -n 1`);
+    if (existingJavaDir) {
+      const backupDest = path.join(javaBackupsDir, existingJavaDir);
+      console.log(`📂 Backing up existing Java version: ${existingJavaDir}`);
+      await createBackup(`/opt/${existingJavaDir}`, backupDest);
+      await runCommand(`sudo rm -rf /opt/${existingJavaDir}`);
     }
 
     console.log(`🚀 Upgrading Java ${javaVersion} from ${javaUrl}...`);
@@ -112,7 +113,7 @@ async function upgradeJava(javaVersion, javaUrl, previousJavaVersion) {
   }
 }
 
-async function upgradeTomcat(tomcatVersion, tomcatUrl, previousTomcatVersion, javaVersion) {
+async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
   const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
   const tempTarFile = `/tmp/tomcat-${tomcatVersion}.tar.gz`;
   const tomcatBackupsDir = `/opt/tomcat_backups`;
@@ -121,15 +122,13 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, previousTomcatVersion, ja
   try {
     await runCommand(`sudo mkdir -p ${tomcatBackupsDir}`);
 
-    if (previousTomcatVersion) {
-      const previousTomcatDir = `/opt/tomcat-${previousTomcatVersion}`;
-      const backupDest = path.join(tomcatBackupsDir, `tomcat-${previousTomcatVersion}`);
-
-      if (fs.existsSync(previousTomcatDir)) {
-        console.log(`📂 Backing up previous Tomcat version: ${previousTomcatVersion}`);
-        await createBackup(previousTomcatDir, backupDest);
-        await runCommand(`sudo rm -rf ${previousTomcatDir}`);
-      }
+    // Backup existing Tomcat installation (if any)
+    const existingTomcatDir = await runCommand(`ls /opt | grep 'tomcat-' | head -n 1`);
+    if (existingTomcatDir) {
+      const backupDest = path.join(tomcatBackupsDir, existingTomcatDir);
+      console.log(`📂 Backing up existing Tomcat version: ${existingTomcatDir}`);
+      await createBackup(`/opt/${existingTomcatDir}`, backupDest);
+      await runCommand(`sudo rm -rf /opt/${existingTomcatDir}`);
     }
 
     console.log(`🚀 Upgrading Tomcat ${tomcatVersion} from ${tomcatUrl}...`);
@@ -192,55 +191,22 @@ async function upgrade() {
 
     console.log(`🔍 Java Version: ${config.java.version}, Tomcat Version: ${config.tomcat.version}`);
 
-    const previousVersionsFilePath = path.join(__dirname, "previous_versions.json");
-    let previousVersions = { install: { java: null, tomcat: null }, upgrade: [] };
-
-    if (fs.existsSync(previousVersionsFilePath)) {
-      previousVersions = JSON.parse(fs.readFileSync(previousVersionsFilePath, "utf-8"));
-      if (!previousVersions.upgrade || !Array.isArray(previousVersions.upgrade)) {
-        previousVersions.upgrade = [];
-      }
-    }
-
-    // **🚀 Pick Previous Version from Upgrade Array if Available**
-    let previousJavaVersion = previousVersions.install.java;
-    let previousTomcatVersion = previousVersions.install.tomcat;
-
-    if (previousVersions.upgrade.length > 0) {
-      const lastUpgrade = previousVersions.upgrade[previousVersions.upgrade.length - 1];
-      previousJavaVersion = lastUpgrade.java;
-      previousTomcatVersion = lastUpgrade.tomcat;
-    }
-
-    console.log(`🔄 Previous Java: ${previousJavaVersion}, Previous Tomcat: ${previousTomcatVersion}`);
-
-    // **Check if Already Upgraded**
-    const isUpgradeBlocked = previousVersions.upgrade.some(
-      (entry) => entry.java === config.java.version && entry.tomcat === config.tomcat.version
-    );
-
-    if (isUpgradeBlocked) {
-      console.error(
-        `❌ Upgrade failed: Java ${config.java.version} and Tomcat ${config.tomcat.version} are already in upgrade history.`
-      );
-      return;
-    }
-
     console.log("🔄 Performing upgrade...");
-    await upgradeJava(config.java.version, config.java.url, previousJavaVersion);
-    await upgradeTomcat(config.tomcat.version, config.tomcat.url, previousTomcatVersion, config.java.version);
+    await upgradeJava(config.java.version, config.java.url);
+    await upgradeTomcat(config.tomcat.version, config.tomcat.url, config.java.version);
 
-    // ✅ Maintain only the last 2 upgrade versions
-    if (previousVersions.upgrade.length >= 2) {
-      previousVersions.upgrade.shift();
-    }
-
-    previousVersions.upgrade.push({ java: config.java.version, tomcat: config.tomcat.version });
-
-    fs.writeFileSync(previousVersionsFilePath, JSON.stringify(previousVersions, null, 2));
     console.log("✅ Upgrade completed successfully!");
   } catch (error) {
     console.error("❌ Upgrade failed:", error);
+
+    // Trigger rollback if upgrade fails
+    console.log("🔄 Starting rollback due to upgrade failure...");
+    try {
+      await rollback();
+      console.log("✅ Rollback completed successfully.");
+    } catch (rollbackError) {
+      console.error("❌ Rollback failed:", rollbackError);
+    }
   }
 }
 
