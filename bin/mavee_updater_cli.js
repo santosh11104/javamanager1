@@ -3,7 +3,7 @@
 const { program } = require("commander");
 const axios = require("axios");
 const { install } = require("../src/install");
-const { uninstallJava, uninstallTomcat } = require("../src/uninstall");
+const { uninstallJava, uninstallTomcat,  removePreviousVersionsFile } = require("../src/uninstall");
 const { upgrade } = require("../src/upgrade");
 const { rollback } = require("../src/rollback");
 
@@ -54,6 +54,7 @@ program
   .action(() => safeAction(async () => {
     await uninstallJava();
     await uninstallTomcat();
+    await removePreviousVersionsFile();
   }, "Uninstallation"));
 
 program.parse(process.argv);

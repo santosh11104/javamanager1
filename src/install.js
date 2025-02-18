@@ -149,20 +149,37 @@ WantedBy=multi-user.target
 }
 async function createPreviousVersionsFile(javaVersion, tomcatVersion) {
   const versionsFilePath = path.join(__dirname, "previous_versions.json");
-  const installData = { // Correct format
+  const installData = {
     install: {
-        java: javaVersion,
-        tomcat: tomcatVersion
+      java: javaVersion,
+      tomcat: tomcatVersion
     }
-};
+  };
 
   try {
-      fs.writeFileSync(versionsFilePath, JSON.stringify(installData, null, 2));
-      console.log("previous_versions.json created/updated successfully.");
+    // Create/update the file
+    fs.writeFileSync(versionsFilePath, JSON.stringify(installData, null, 2));
+    console.log("✅ previous_versions.json created/updated successfully.");
+
+    //  Set correct permissions (read/write for all users)
+    fs.chmodSync(versionsFilePath, 0o755); // Equivalent to chmod 755
+    console.log("✅ Set permissions to 755 (rwxr-xr-x)");
+
+    //  Change file ownership to the current user
+    const currentUser = process.env.USER || process.env.LOGNAME; // Get the logged-in user
+    if (currentUser) {
+      fs.chownSync(versionsFilePath, process.getuid(), process.getgid()); // Change ownership to the current user
+      console.log(`✅ Changed file ownership to ${currentUser}`);
+    } else {
+      console.warn("⚠ Unable to determine the current user. Ownership not changed.");
+    }
+
   } catch (error) {
-      console.error("Error creating/updating previous_versions.json:", error);
+    console.error("❌ Error creating/updating previous_versions.json:", error);
   }
 }
+
+
 async function install() {
   try {
       await installJava();
