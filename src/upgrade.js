@@ -181,18 +181,19 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
     }
 
     console.log(`🚀 Upgrading Tomcat ${tomcatVersion} from ${tomcatUrl}...`);
- // ✅ Check if Tomcat download succeeds before upgrading
- try {
-  await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
-} catch (error) {
-  console.error("❌ Tomcat download failed. Rolling back...");
-  await rollback("20", "11.0.3"); // Replace with correct previous versions
-  throw error;
-}
+    
+    // ✅ Check if Tomcat download succeeds before upgrading
+    try {
+      await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
+    } catch (error) {
+      console.error("❌ Tomcat download failed. Rolling back...");
+      await rollback(javaVersion, tomcatVersion);
+      throw error;
+    }
 
     await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
 
-    // ✅ Rename extracted folder
+    // ✅ Extracted folder is named `apache-tomcat-11.0.3`. Rename it to `tomcat-11.0.3`
     const extractedFolder = await runCommand(`ls /opt | grep 'apache-tomcat-' | head -n 1`);
     if (extractedFolder) {
       await runCommand(`sudo mv /opt/${extractedFolder} ${tomcatDir}`);
@@ -202,38 +203,56 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
     await runCommand(`sudo chown -R tomcat:tomcat ${tomcatDir}`);
     await runCommand(`sudo chmod -R 755 ${tomcatDir}`);
     await runCommand(`sudo chmod -R +x ${tomcatDir}/bin/*.sh`);
-     // ✅ Restore Tomcat systemd service
-     const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
-     const serviceFileContent = `
- [Unit]
- Description=Apache Tomcat ${tomcatVersion}
- After=network.target
- 
- [Service]
- User=tomcat
- Group=tomcat
- Environment="JAVA_HOME=/opt/openjdk-${javaVersion}"
- Environment="CATALINA_HOME=${tomcatDir}"
- ExecStart=${tomcatDir}/bin/catalina.sh run
- ExecStop=${tomcatDir}/bin/shutdown.sh
- Restart=always
- 
- [Install]
- WantedBy=multi-user.target
- `;
- 
-     console.log("⚙️ Creating Tomcat systemd service...");
-     await runCommand(`echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`);
-     await runCommand(`sudo chmod 644 ${serviceFilePath}`);
-     await runCommand(`sudo systemctl daemon-reload`);
-     await runCommand(`sudo systemctl enable tomcat-${tomcatVersion}`);
-     await runCommand(`sudo systemctl restart tomcat-${tomcatVersion}`);
+
+    // ✅ Create new Tomcat systemd service
+    const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
+    const serviceFileContent = `
+[Unit]
+Description=Apache Tomcat ${tomcatVersion}
+After=network.target
+
+[Service]
+User=tomcat
+Group=tomcat
+Environment="JAVA_HOME=/opt/openjdk-${javaVersion}"
+Environment="CATALINA_HOME=${tomcatDir}"
+ExecStart=${tomcatDir}/bin/catalina.sh run
+ExecStop=${tomcatDir}/bin/shutdown.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+`;
+
+    console.log("⚙️ Creating Tomcat systemd service...");
+    await runCommand(`echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`);
+    await runCommand(`sudo chmod 644 ${serviceFilePath}`);
+    await runCommand(`sudo systemctl daemon-reload`);
+    await runCommand(`sudo systemctl enable tomcat-${tomcatVersion}`);
+    await runCommand(`sudo systemctl restart tomcat-${tomcatVersion}`);
+
     console.log(`✅ Tomcat ${tomcatVersion} upgraded successfully.`);
+
+    // ✅ DELETE OLD TOMCAT SERVICE FILE
+    console.log("🗑️ Checking for old Tomcat service files...");
+    const oldServices = await runCommand(`ls /etc/systemd/system | grep 'tomcat-' | grep -v 'tomcat-${tomcatVersion}' || true`);
+    
+    if (oldServices) {
+      const oldServiceList = oldServices.split("\n");
+      for (const oldService of oldServiceList) {
+        console.log(`🗑️ Removing old Tomcat service file: /etc/systemd/system/${oldService}`);
+        await runCommand(`sudo rm -f /etc/systemd/system/${oldService}`);
+      }
+      await runCommand(`sudo systemctl daemon-reload`);
+    }
+
   } catch (error) {
     console.error(`❌ Tomcat upgrade failed: ${error}`);
     throw error;
   }
 }
+
+
 
 /**
  * Main upgrade function.
