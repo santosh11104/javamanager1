@@ -2,6 +2,11 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
+const configPath = path.join(__dirname, "mavee_config_upgrade.json");
+
+/**
+ * Runs a shell command.
+ */
 async function runCommand(command) {
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
@@ -16,6 +21,33 @@ async function runCommand(command) {
   });
 }
 
+/**
+ * Reads the Java & Tomcat versions and URLs from `mavee_config_upgrade.json`
+ */
+async function getUpgradeConfig() {
+  try {
+    if (!fs.existsSync(configPath)) {
+      throw new Error("🚨 Upgrade configuration file not found.");
+    }
+
+    const configData = fs.readFileSync(configPath, "utf-8");
+    const config = JSON.parse(configData);
+
+    return {
+      javaVersion: config.mave.dependencies.java.version,
+      javaUrl: config.mave.dependencies.java.packageUrlUnix,
+      tomcatVersion: config.mave.dependencies.tomcat.version,
+      tomcatUrl: config.mave.dependencies.tomcat.packageUrlUnix,
+    };
+  } catch (error) {
+    console.error("❌ Failed to read upgrade configuration:", error);
+    throw error;
+  }
+}
+
+/**
+ * Creates a backup of the given directory.
+ */
 async function createBackup(source, destination) {
   try {
     if (fs.existsSync(destination)) {
@@ -30,7 +62,9 @@ async function createBackup(source, destination) {
   }
 }
 
-// ✅ Rollback function
+/**
+ * Rolls back to the previous versions of Java & Tomcat.
+ */
 async function rollback(javaVersion, tomcatVersion) {
   console.log("🔄 Rolling back due to failure...");
 
@@ -65,62 +99,9 @@ async function rollback(javaVersion, tomcatVersion) {
   }
 }
 
-// ✅ Upgrade Java
-/*
- async function upgradeJava(javaVersion, javaUrl) {
-  const javaDir = `/opt/openjdk-${javaVersion}`;
-  const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
-  const javaBackupsDir = `/opt/java_backups`;
-
-  try {
-    await runCommand(`sudo mkdir -p ${javaBackupsDir}`);
-
-    // ✅ Backup current Java version
-    const existingJava = await runCommand(`ls /opt | grep 'openjdk-' | head -n 1`);
-    if (existingJava) {
-      const backupDest = path.join(javaBackupsDir, existingJava);
-      await createBackup(`/opt/${existingJava}`, backupDest);
-      await runCommand(`sudo rm -rf /opt/${existingJava}`);
-    }
-
-    console.log(`🚀 Upgrading Java ${javaVersion} from ${javaUrl}...`);
-    await runCommand(`sudo apt update && sudo apt install -y wget`);
-
-    // ✅ Check if Java download succeeds before upgrading
-    try {
-      await runCommand(`sudo wget -q "${javaUrl}" -O "${tempTarFile}"`);
-    } catch (error) {
-      console.error("❌ Java download failed. Rolling back...");
-      await rollback("20", "11.0.3"); // Replace with correct previous versions
-      throw error;
-    }
-
-    await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
-    await runCommand(`rm -f ${tempTarFile}`);
-
-    // ✅ Update Environment Variables
-    const envCommands = `
-      sudo sed -i '/^export JAVA_HOME=/d' /etc/profile
-      sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile
-      sudo sed -i '/^JAVA_HOME=/d' /etc/environment
-
-      echo 'export JAVA_HOME=${javaDir}' | sudo tee -a /etc/profile
-      echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
-      echo 'JAVA_HOME=${javaDir}' | sudo tee -a /etc/environment
-    `;
-
-    await runCommand(envCommands);
-
-    // ✅ Apply changes to the current shell session
-    await runCommand(`bash -c "source /etc/profile"`);
-
-    console.log(`✅ Java ${javaVersion} upgraded successfully.`);
-  } catch (error) {
-    console.error(`❌ Java upgrade failed: ${error}`);
-    throw error;
-  }
-}
-*/
+/**
+ * Upgrades Java.
+ */
 async function upgradeJava(javaVersion, javaUrl) {
   const javaDir = `/opt/openjdk-${javaVersion}`;
   const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
@@ -145,36 +126,34 @@ async function upgradeJava(javaVersion, javaUrl) {
       await runCommand(`sudo wget -q "${javaUrl}" -O "${tempTarFile}"`);
     } catch (error) {
       console.error("❌ Java download failed. Rolling back...");
-      await rollback("20", "11.0.3"); // Replace with correct previous versions
+      await rollback(javaVersion, "11.0.3");
       throw error;
     }
 
     await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
-    
-    // ✅ Extracted folder is named `jdk-20`. We rename it to `openjdk-20`
+
+    // ✅ Rename extracted folder
     const extractedFolder = await runCommand(`ls /opt | grep 'jdk-' | head -n 1`);
     if (extractedFolder) {
       await runCommand(`sudo mv /opt/${extractedFolder} ${javaDir}`);
     }
 
     await runCommand(`rm -f ${tempTarFile}`);
+ // ✅ Update Environment Variables
+ const envCommands = `
+ sudo sed -i '/^export JAVA_HOME=/d' /etc/profile
+ sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile
+ sudo sed -i '/^JAVA_HOME=/d' /etc/environment
 
-    // ✅ Update Environment Variables
-    const envCommands = `
-      sudo sed -i '/^export JAVA_HOME=/d' /etc/profile
-      sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile
-      sudo sed -i '/^JAVA_HOME=/d' /etc/environment
+ echo 'export JAVA_HOME=${javaDir}' | sudo tee -a /etc/profile
+ echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
+ echo 'JAVA_HOME=${javaDir}' | sudo tee -a /etc/environment
+`;
 
-      echo 'export JAVA_HOME=${javaDir}' | sudo tee -a /etc/profile
-      echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
-      echo 'JAVA_HOME=${javaDir}' | sudo tee -a /etc/environment
-    `;
+await runCommand(envCommands);
 
-    await runCommand(envCommands);
-
-    // ✅ Apply changes to the current shell session
-    await runCommand(`bash -c "source /etc/profile"`);
-
+// ✅ Apply changes to the current shell session
+await runCommand(`bash -c "source /etc/profile"`);
     console.log(`✅ Java ${javaVersion} upgraded successfully.`);
   } catch (error) {
     console.error(`❌ Java upgrade failed: ${error}`);
@@ -182,10 +161,10 @@ async function upgradeJava(javaVersion, javaUrl) {
   }
 }
 
-
-
-// ✅ Upgrade Tomcat
-async function upgradeTomcat(tomcatVersion, tomcatUrl,javaVersion) {
+/**
+ * Upgrades Tomcat.
+ */
+async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
   const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
   const tempTarFile = `/tmp/tomcat-${tomcatVersion}.tar.gz`;
   const tomcatBackupsDir = `/opt/tomcat_backups`;
@@ -202,19 +181,18 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl,javaVersion) {
     }
 
     console.log(`🚀 Upgrading Tomcat ${tomcatVersion} from ${tomcatUrl}...`);
-    
-    // ✅ Check if Tomcat download succeeds before upgrading
-    try {
-      await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
-    } catch (error) {
-      console.error("❌ Tomcat download failed. Rolling back...");
-      await rollback("20", "11.0.3"); // Replace with correct previous versions
-      throw error;
-    }
+ // ✅ Check if Tomcat download succeeds before upgrading
+ try {
+  await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
+} catch (error) {
+  console.error("❌ Tomcat download failed. Rolling back...");
+  await rollback("20", "11.0.3"); // Replace with correct previous versions
+  throw error;
+}
 
     await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
-    
-    // ✅ Extracted folder is named `apache-tomcat-11.0.3`. We rename it to `tomcat-11.0.3`
+
+    // ✅ Rename extracted folder
     const extractedFolder = await runCommand(`ls /opt | grep 'apache-tomcat-' | head -n 1`);
     if (extractedFolder) {
       await runCommand(`sudo mv /opt/${extractedFolder} ${tomcatDir}`);
@@ -257,19 +235,23 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl,javaVersion) {
   }
 }
 
-
-// ✅ Main Upgrade Process
+/**
+ * Main upgrade function.
+ */
 async function upgrade() {
   try {
     console.log("🚀 Starting upgrade process...");
 
-    await upgradeJava("20", "https://download.java.net/openjdk/jdk20/ri/openjdk-20+36_linux-x64_bin.tar.gz");
-    await upgradeTomcat("11.0.3", "https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.3/bin/apache-tomcat-11.0.3.tar.gz","20");
+    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } = await getUpgradeConfig();
+
+    await upgradeJava(javaVersion, javaUrl);
+    await upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion);
 
     console.log("✅ Upgrade completed successfully.");
   } catch (error) {
     console.error("❌ Upgrade failed. Rolling back...");
-    await rollback("20", "11.0.3");
+    const { javaVersion, tomcatVersion } = await getUpgradeConfig();
+    await rollback(javaVersion, tomcatVersion);
   }
 }
 
