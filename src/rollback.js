@@ -17,12 +17,12 @@ function runCommand(command, shell = "/bin/bash") {
 }
 
 /**
- * Rolls back Java to the last working version from backups.
+ * Rolls back to the latest backed-up version of Java.
  */
 async function rollbackJava() {
   try {
     const javaBackupsDir = `/opt/java_backups`;
-    const latestJavaBackup = await runCommand(`ls -t ${javaBackupsDir} | grep 'openjdk-' | head -n 1`);
+    const latestJavaBackup = await runCommand(`ls ${javaBackupsDir} | grep 'openjdk-' | sort -V | tail -n 1`);
 
     if (!latestJavaBackup) {
       console.error("🚨 No Java backup found for rollback.");
@@ -34,15 +34,15 @@ async function rollbackJava() {
 
     console.log(`🔄 Rolling back to Java from backup: ${latestJavaBackup}...`);
 
-    // Remove all other Java versions
-    console.log("🗑️ Removing all other Java versions...");
+    // Remove the failed upgrade version from /opt/
+    console.log("🗑️ Removing all Java versions from /opt/...");
     await runCommand(`sudo rm -rf /opt/openjdk-*`);
 
     // Restore Java from backup
     console.log(`♻️ Restoring Java from backup: ${latestJavaBackup}...`);
     await runCommand(`sudo cp -r ${javaBackupDir} ${javaDir}`);
 
-    // Set environment variables
+    // ✅ Set JAVA_HOME Environment Variables
     console.log("🔧 Setting JAVA_HOME...");
     const envCommands = `
       sudo sed -i '/^JAVA_HOME=/d' /etc/environment &&
@@ -58,12 +58,12 @@ async function rollbackJava() {
 }
 
 /**
- * Rolls back Tomcat to the last working version from backups.
+ * Rolls back to the latest backed-up version of Tomcat.
  */
 async function rollbackTomcat() {
   try {
     const tomcatBackupsDir = `/opt/tomcat_backups`;
-    const latestTomcatBackup = await runCommand(`ls -t ${tomcatBackupsDir} | grep 'tomcat-' | head -n 1`);
+    const latestTomcatBackup = await runCommand(`ls ${tomcatBackupsDir} | grep 'tomcat-' | sort -V | tail -n 1`);
 
     if (!latestTomcatBackup) {
       console.error("🚨 No Tomcat backup found for rollback.");
@@ -75,33 +75,32 @@ async function rollbackTomcat() {
 
     console.log(`🔄 Rolling back to Tomcat from backup: ${latestTomcatBackup}...`);
 
-    // Stop and disable all Tomcat services
+    // Stop and disable all Tomcat services before rollback
     console.log("🛑 Stopping all Tomcat services...");
     await runCommand(`sudo systemctl stop tomcat* || true`);
     await runCommand(`sudo systemctl disable tomcat* || true`);
 
-    // Remove all other Tomcat versions
-    console.log("🗑️ Removing all other Tomcat versions...");
-    await runCommand(`sudo rm -rf /opt/tomcat-* /usr/share/tomcat-* /var/lib/tomcat-* /etc/tomcat-*`);
+    // Remove the failed upgrade version from /opt/
+    console.log("🗑️ Removing all Tomcat versions from /opt/...");
+    await runCommand(`sudo rm -rf /opt/tomcat-*`);
 
     // Restore Tomcat from backup
     console.log(`♻️ Restoring Tomcat from backup: ${latestTomcatBackup}...`);
     await runCommand(`sudo cp -r ${tomcatBackupDir} ${tomcatDir}`);
 
-    // Set correct permissions
+    // ✅ Set Permissions
     console.log("🔧 Setting Tomcat user permissions...");
     await runCommand(`sudo chown -R tomcat:tomcat ${tomcatDir}`);
     await runCommand(`sudo chmod -R 755 ${tomcatDir}`);
     await runCommand(`sudo chmod -R +x ${tomcatDir}/bin/*.sh`);
 
-    // Restore or recreate the systemd service file
-    console.log("⚙️ Checking if Tomcat systemd service exists...");
-    const tomcatVersion = latestTomcatBackup.replace("tomcat-", ""); // Remove "tomcat-" prefix
+    // ✅ Restore Tomcat systemd service
+    console.log("⚙️ Restoring Tomcat systemd service...");
+    const tomcatVersion = latestTomcatBackup.replace("tomcat-", ""); // Extracts "9.0.99"
     const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
+    const javaHome = await runCommand("echo $JAVA_HOME");
 
-    if (!fs.existsSync(serviceFilePath)) {
-      console.log(`🔧 Service file not found. Restoring Tomcat service for ${tomcatVersion}...`);
-      const serviceFileContent = `
+    const serviceFileContent = `
 [Unit]
 Description=Apache Tomcat ${tomcatVersion}
 After=network.target
@@ -109,7 +108,7 @@ After=network.target
 [Service]
 User=tomcat
 Group=tomcat
-Environment="JAVA_HOME=/opt/openjdk-${tomcatVersion}"
+Environment="JAVA_HOME=${javaHome}"
 Environment="CATALINA_HOME=${tomcatDir}"
 ExecStart=${tomcatDir}/bin/catalina.sh run
 ExecStop=${tomcatDir}/bin/shutdown.sh
@@ -118,13 +117,10 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 `;
-      await runCommand(`echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`);
-      await runCommand(`sudo chmod 644 ${serviceFilePath}`);
-    } else {
-      console.log(`✅ Tomcat service file already exists: ${serviceFilePath}`);
-    }
+    await runCommand(`echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`);
+    await runCommand(`sudo chmod 644 ${serviceFilePath}`);
 
-    // Reload systemd and start Tomcat
+    // ✅ Restart Tomcat Service
     console.log("🔄 Reloading systemd and starting Tomcat...");
     await runCommand(`sudo systemctl daemon-reload`);
     await runCommand(`sudo systemctl enable tomcat-${tomcatVersion}`);
@@ -137,7 +133,7 @@ WantedBy=multi-user.target
 }
 
 /**
- * Main rollback function.
+ * Main rollback function - Rolls back both Java & Tomcat.
  */
 async function rollback() {
   try {
@@ -152,4 +148,4 @@ async function rollback() {
   }
 }
 
-module.exports = { rollback };
+module.exports = { rollbackJava, rollbackTomcat, rollback };
