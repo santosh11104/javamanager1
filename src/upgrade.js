@@ -24,7 +24,6 @@ const path = require("path");
 
 const configPath = path.join(__dirname, "mavee_config_upgrade.json");
 
-
 async function readUpgradeConfiguration() {
   try {
     if (!fs.existsSync(configPath)) {
@@ -47,10 +46,10 @@ async function readUpgradeConfiguration() {
 }
 /**
  * Retrieves the current versions of Java and Tomcat installed on the system.
- * 
+ *
  * This function uses the `runCommand` utility to execute shell commands and extract the
  * current versions of Java and Tomcat from the directory names in the `/opt` directory.
- * 
+ *
  * @returns {Promise<{ currentJavaVersion: string, currentTomcatVersion: string }>} - An object containing the current versions of Java and Tomcat.
  */
 async function getCurrentVersions() {
@@ -59,14 +58,18 @@ async function getCurrentVersions() {
 
   try {
     // Extract the current Java version from the directory name in `/opt`
-    currentJavaVersion = await runCommand(`ls /opt | grep 'openjdk-' | sed 's/openjdk-//' | head -n 1`);
+    currentJavaVersion = await runCommand(
+      `ls /opt | grep 'openjdk-' | sed 's/openjdk-//' | head -n 1`
+    );
   } catch (error) {
     console.warn("⚠️ No existing Java installation found.");
   }
 
   try {
     // Extract the current Tomcat version from the directory name in `/opt`
-    currentTomcatVersion = await runCommand(`ls /opt | grep 'tomcat-' | sed 's/tomcat-//' | head -n 1`);
+    currentTomcatVersion = await runCommand(
+      `ls /opt | grep 'tomcat-' | sed 's/tomcat-//' | head -n 1`
+    );
   } catch (error) {
     console.warn("⚠️ No existing Tomcat installation found.");
   }
@@ -74,24 +77,34 @@ async function getCurrentVersions() {
   return { currentJavaVersion, currentTomcatVersion };
 }
 async function validateUpgradeConditions(javaVersion, tomcatVersion) {
-  const { currentJavaVersion, currentTomcatVersion } = await getCurrentVersions();
+  const { currentJavaVersion, currentTomcatVersion } =
+    await getCurrentVersions();
 
-  if (javaVersion === currentJavaVersion && tomcatVersion === currentTomcatVersion) {
-    console.error(`🚨 Upgrade aborted: Java ${javaVersion} and Tomcat ${tomcatVersion} are already installed.`);
+  if (
+    javaVersion === currentJavaVersion &&
+    tomcatVersion === currentTomcatVersion
+  ) {
+    console.error(
+      `🚨 Upgrade aborted: Java ${javaVersion} and Tomcat ${tomcatVersion} are already installed.`
+    );
     process.exit(1); // Stop execution
   }
 
   if (javaVersion === currentJavaVersion) {
-    console.error(`🚨 Upgrade aborted: Java ${javaVersion} is already installed.`);
+    console.error(
+      `🚨 Upgrade aborted: Java ${javaVersion} is already installed.`
+    );
     process.exit(1);
   }
 
   if (tomcatVersion === currentTomcatVersion) {
-    console.error(`🚨 Upgrade aborted: Tomcat ${tomcatVersion} is already installed.`);
+    console.error(
+      `🚨 Upgrade aborted: Tomcat ${tomcatVersion} is already installed.`
+    );
     process.exit(1);
   }
 }
- 
+
 /**
  * Creates a backup of the specified source directory to the destination directory.
  * If a backup already exists at the destination, it will be removed before creating the new backup.
@@ -103,7 +116,9 @@ async function validateUpgradeConditions(javaVersion, tomcatVersion) {
 async function createBackup(source, destination) {
   try {
     if (fs.existsSync(destination)) {
-      console.log(`📂 Backup already exists at ${destination}, removing old backup...`);
+      console.log(
+        `📂 Backup already exists at ${destination}, removing old backup...`
+      );
       await runCommand(`sudo rm -rf ${destination}`);
     }
     console.log(`📂 Creating backup: ${source} -> ${destination}`);
@@ -114,7 +129,6 @@ async function createBackup(source, destination) {
   }
 }
 
- 
 async function rollbackUpgrade(javaVersion, tomcatVersion) {
   console.log("🔄 Rolling back due to failure...");
 
@@ -125,17 +139,25 @@ async function rollbackUpgrade(javaVersion, tomcatVersion) {
     if (fs.existsSync(javaBackupDir)) {
       console.log(`♻️ Restoring Java ${javaVersion} from backup...`);
       await runCommand(`sudo rm -rf /opt/openjdk-*`);
-      await runCommand(`sudo cp -r ${javaBackupDir} /opt/openjdk-${javaVersion}`);
+      await runCommand(
+        `sudo cp -r ${javaBackupDir} /opt/openjdk-${javaVersion}`
+      );
     } else {
-      console.warn(`⚠️ No Java backup found for version ${javaVersion}. Skipping rollback.`);
+      console.warn(
+        `⚠️ No Java backup found for version ${javaVersion}. Skipping rollback.`
+      );
     }
 
     if (fs.existsSync(tomcatBackupDir)) {
       console.log(`♻️ Restoring Tomcat ${tomcatVersion} from backup...`);
       await runCommand(`sudo rm -rf /opt/tomcat-*`);
-      await runCommand(`sudo cp -r ${tomcatBackupDir} /opt/tomcat-${tomcatVersion}`);
+      await runCommand(
+        `sudo cp -r ${tomcatBackupDir} /opt/tomcat-${tomcatVersion}`
+      );
     } else {
-      console.warn(`⚠️ No Tomcat backup found for version ${tomcatVersion}. Skipping rollback.`);
+      console.warn(
+        `⚠️ No Tomcat backup found for version ${tomcatVersion}. Skipping rollback.`
+      );
     }
 
     // ✅ Restart Tomcat Service after rollback
@@ -149,7 +171,6 @@ async function rollbackUpgrade(javaVersion, tomcatVersion) {
   }
 }
 
- 
 async function upgradeJava(javaVersion, javaUrl) {
   const javaDir = `/opt/openjdk-${javaVersion}`;
   const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
@@ -159,7 +180,9 @@ async function upgradeJava(javaVersion, javaUrl) {
     await runCommand(`sudo mkdir -p ${javaBackupsDir}`);
 
     // ✅ Backup current Java version
-    const existingJava = await runCommand(`ls /opt | grep 'openjdk-' | head -n 1`);
+    const existingJava = await runCommand(
+      `ls /opt | grep 'openjdk-' | head -n 1`
+    );
     if (existingJava) {
       const backupDest = path.join(javaBackupsDir, existingJava);
       await createBackup(`/opt/${existingJava}`, backupDest);
@@ -174,34 +197,42 @@ async function upgradeJava(javaVersion, javaUrl) {
       await runCommand(`sudo wget -q "${javaUrl}" -O "${tempTarFile}"`);
     } catch (error) {
       console.error("❌ Java download failed. Rolling back...");
-      await rollbackUpgrade(javaVersion, "11.0.3");
+
+      // ✅ Get current Tomcat version dynamically
+      const { currentTomcatVersion } = await getCurrentVersions();
+      await rollbackUpgrade(javaVersion, currentTomcatVersion);
+
       throw error;
     }
 
     await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
 
     // ✅ Rename extracted folder
-    const extractedFolder = await runCommand(`ls /opt | grep 'jdk-' | head -n 1`);
+    const extractedFolder = await runCommand(
+      `ls /opt | grep 'jdk-' | head -n 1`
+    );
     if (extractedFolder) {
       await runCommand(`sudo mv /opt/${extractedFolder} ${javaDir}`);
     }
 
     await runCommand(`rm -f ${tempTarFile}`);
- // ✅ Update Environment Variables
- const envCommands = `
- sudo sed -i '/^export JAVA_HOME=/d' /etc/profile
- sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile
- sudo sed -i '/^JAVA_HOME=/d' /etc/environment
 
- echo 'export JAVA_HOME=${javaDir}' | sudo tee -a /etc/profile
- echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
- echo 'JAVA_HOME=${javaDir}' | sudo tee -a /etc/environment
-`;
+    // ✅ Update Environment Variables
+    const envCommands = `
+      sudo sed -i '/^export JAVA_HOME=/d' /etc/profile
+      sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile
+      sudo sed -i '/^JAVA_HOME=/d' /etc/environment
 
-await runCommand(envCommands);
+      echo 'export JAVA_HOME=${javaDir}' | sudo tee -a /etc/profile
+      echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
+      echo 'JAVA_HOME=${javaDir}' | sudo tee -a /etc/environment
+    `;
 
-// ✅ Apply changes to the current shell session
-await runCommand(`bash -c "source /etc/profile"`);
+    await runCommand(envCommands);
+
+    // ✅ Apply changes to the current shell session
+    await runCommand(`bash -c "source /etc/profile"`);
+
     console.log(`✅ Java ${javaVersion} upgraded successfully.`);
   } catch (error) {
     console.error(`❌ Java upgrade failed: ${error}`);
@@ -209,7 +240,6 @@ await runCommand(`bash -c "source /etc/profile"`);
   }
 }
 
- 
 async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
   const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
   const tempTarFile = `/tmp/tomcat-${tomcatVersion}.tar.gz`;
@@ -219,7 +249,9 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
     await runCommand(`sudo mkdir -p ${tomcatBackupsDir}`);
 
     // ✅ Backup current Tomcat version
-    const existingTomcat = await runCommand(`ls /opt | grep 'tomcat-' | head -n 1`);
+    const existingTomcat = await runCommand(
+      `ls /opt | grep 'tomcat-' | head -n 1`
+    );
     if (existingTomcat) {
       const backupDest = path.join(tomcatBackupsDir, existingTomcat);
       await createBackup(`/opt/${existingTomcat}`, backupDest);
@@ -227,7 +259,7 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
     }
 
     console.log(`🚀 Upgrading Tomcat ${tomcatVersion} from ${tomcatUrl}...`);
-    
+
     // ✅ Check if Tomcat download succeeds before upgrading
     try {
       await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
@@ -240,7 +272,9 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
     await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
 
     // ✅ Extracted folder is named `apache-tomcat-11.0.3`. Rename it to `tomcat-11.0.3`
-    const extractedFolder = await runCommand(`ls /opt | grep 'apache-tomcat-' | head -n 1`);
+    const extractedFolder = await runCommand(
+      `ls /opt | grep 'apache-tomcat-' | head -n 1`
+    );
     if (extractedFolder) {
       await runCommand(`sudo mv /opt/${extractedFolder} ${tomcatDir}`);
     }
@@ -271,7 +305,9 @@ WantedBy=multi-user.target
 `;
 
     console.log("⚙️ Creating Tomcat systemd service...");
-    await runCommand(`echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`);
+    await runCommand(
+      `echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`
+    );
     await runCommand(`sudo chmod 644 ${serviceFilePath}`);
     await runCommand(`sudo systemctl daemon-reload`);
     await runCommand(`sudo systemctl enable tomcat-${tomcatVersion}`);
@@ -281,31 +317,32 @@ WantedBy=multi-user.target
 
     // ✅ DELETE OLD TOMCAT SERVICE FILE
     console.log("🗑️ Checking for old Tomcat service files...");
-    const oldServices = await runCommand(`ls /etc/systemd/system | grep 'tomcat-' | grep -v 'tomcat-${tomcatVersion}' || true`);
-    
+    const oldServices = await runCommand(
+      `ls /etc/systemd/system | grep 'tomcat-' | grep -v 'tomcat-${tomcatVersion}' || true`
+    );
+
     if (oldServices) {
       const oldServiceList = oldServices.split("\n");
       for (const oldService of oldServiceList) {
-        console.log(`🗑️ Removing old Tomcat service file: /etc/systemd/system/${oldService}`);
+        console.log(
+          `🗑️ Removing old Tomcat service file: /etc/systemd/system/${oldService}`
+        );
         await runCommand(`sudo rm -f /etc/systemd/system/${oldService}`);
       }
       await runCommand(`sudo systemctl daemon-reload`);
     }
-
   } catch (error) {
     console.error(`❌ Tomcat upgrade failed: ${error}`);
     throw error;
   }
 }
 
-
-
- 
 async function upgrade() {
   try {
     console.log("🚀 Starting upgrade process...");
 
-    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } = await readUpgradeConfiguration();
+    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } =
+      await readUpgradeConfiguration();
 
     // ✅ Validate if upgrade is needed
     await validateUpgradeConditions(javaVersion, tomcatVersion);

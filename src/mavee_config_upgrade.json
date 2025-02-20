@@ -6,10 +6,10 @@
       "java": {
           "version18": "18",
         "packageUrlUnix18": "https://download.java.net/openjdk/jdk18/ri/openjdk-18+36_linux-x64_bin.tar.gz",
-        "version": "19",
-        "packageUrlUnix": "https://download.java.net/openjdk/jdk19/ri/openjdk-19+36_linux-x64_bin.tar.gz",
-         "version20": "20",
-        "packageUrlUnix20": "https://download.java.net/openjdk/jdk20/ri/openjdk-20+36_linux-x64_bin.tar.gz"
+        "version19": "19",
+        "packageUrlUnix19": "https://download.java.net/openjdk/jdk19/ri/openjdk-19+36_linux-x64_bin.tar.gz",
+         "version": "20",
+        "packageUrlUnix": "https://download.java.net/openjdk/jdk20/ri/openjdk-20+36_linux-x64_bin.tar.gz"
       },
       "tomcat": {
         "version9": "9.0.99",
