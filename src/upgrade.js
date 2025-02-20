@@ -25,7 +25,7 @@ const path = require("path");
 const configPath = path.join(__dirname, "mavee_config_upgrade.json");
 
 
-async function getUpgradeConfig() {
+async function readUpgradeConfiguration() {
   try {
     if (!fs.existsSync(configPath)) {
       throw new Error("🚨 Upgrade configuration file not found.");
@@ -73,7 +73,7 @@ async function getCurrentVersions() {
 
   return { currentJavaVersion, currentTomcatVersion };
 }
-async function validateUpgrade(javaVersion, tomcatVersion) {
+async function validateUpgradeConditions(javaVersion, tomcatVersion) {
   const { currentJavaVersion, currentTomcatVersion } = await getCurrentVersions();
 
   if (javaVersion === currentJavaVersion && tomcatVersion === currentTomcatVersion) {
@@ -115,7 +115,7 @@ async function createBackup(source, destination) {
 }
 
  
-async function rollback(javaVersion, tomcatVersion) {
+async function rollbackUpgrade(javaVersion, tomcatVersion) {
   console.log("🔄 Rolling back due to failure...");
 
   try {
@@ -174,7 +174,7 @@ async function upgradeJava(javaVersion, javaUrl) {
       await runCommand(`sudo wget -q "${javaUrl}" -O "${tempTarFile}"`);
     } catch (error) {
       console.error("❌ Java download failed. Rolling back...");
-      await rollback(javaVersion, "11.0.3");
+      await rollbackUpgrade(javaVersion, "11.0.3");
       throw error;
     }
 
@@ -233,7 +233,7 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
       await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
     } catch (error) {
       console.error("❌ Tomcat download failed. Rolling back...");
-      await rollback(javaVersion, tomcatVersion);
+      await rollbackUpgrade(javaVersion, tomcatVersion);
       throw error;
     }
 
@@ -305,10 +305,10 @@ async function upgrade() {
   try {
     console.log("🚀 Starting upgrade process...");
 
-    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } = await getUpgradeConfig();
+    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } = await readUpgradeConfiguration();
 
     // ✅ Validate if upgrade is needed
-    await validateUpgrade(javaVersion, tomcatVersion);
+    await validateUpgradeConditions(javaVersion, tomcatVersion);
 
     await upgradeJava(javaVersion, javaUrl);
     await upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion);
@@ -316,8 +316,8 @@ async function upgrade() {
     console.log("✅ Upgrade completed successfully.");
   } catch (error) {
     console.error("❌ Upgrade failed. Rolling back...");
-    const { javaVersion, tomcatVersion } = await getUpgradeConfig();
-    await rollback(javaVersion, tomcatVersion);
+    const { javaVersion, tomcatVersion } = await readUpgradeConfiguration();
+    await rollbackUpgrade(javaVersion, tomcatVersion);
   }
 }
 
