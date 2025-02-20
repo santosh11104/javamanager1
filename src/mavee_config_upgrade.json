@@ -6,18 +6,18 @@
       "java": {
           "version18": "18",
         "packageUrlUnix18": "https://download.java.net/openjdk/jdk18/ri/openjdk-18+36_linux-x64_bin.tar.gz",
-        "version19": "19",
-        "packageUrlUnix19": "https://download.java.net/openjdk/jdk19/ri/openjdk-19+36_linux-x64_bin.tar.gz",
-         "version": "20",
-        "packageUrlUnix": "https://download.java.net/openjdk/jdk20/ri/openjdk-20+36_linux-x64_bin.tar.gz"
+        "version": "19",
+        "packageUrlUnix": "https://download.java.net/openjdk/jdk19/ri/openjdk-19+36_linux-x64_bin.tar.gz",
+         "version20": "20",
+        "packageUrlUnix20": "https://download.java.net/openjdk/jdk20/ri/openjdk-20+36_linux-x64_bin.tar.gz"
       },
       "tomcat": {
-        "version": "9.0.99",
-        "packageUrlUnix": "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.99/bin/apache-tomcat-9.0.99.tar.gz",
+        "version9": "9.0.99",
+        "packageUrlUnix9": "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.99/bin/apache-tomcat-9.0.99.tar.gz",
          "version10": "10.1.35",
         "packageUrlUnix10": "https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.35/bin/apache-tomcat-10.1.35.tar.gz",
-         "version11": "11.0.3",
-        "packageUrlUnix11": "https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.3/bin/apache-tomcat-11.0.3.tar.gz"
+         "version": "11.0.3",
+        "packageUrlUnix": "https://dlcdn.apache.org/tomcat/tomcat-11/v11.0.3/bin/apache-tomcat-11.0.3.tar.gz"
         
       }
     }

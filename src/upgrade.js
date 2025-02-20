@@ -1,11 +1,9 @@
-const { exec } = require("child_process");
-const fs = require("fs");
-const path = require("path");
-
-const configPath = path.join(__dirname, "mavee_config_upgrade.json");
-
 /**
- * Runs a shell command.
+ * Runs a shell command and returns the output.
+ *
+ * @param {string} command - The shell command to execute.
+ * @returns {Promise<string>} - The trimmed output of the command.
+ * @throws {Error} - If the command fails to execute.
  */
 async function runCommand(command) {
   return new Promise((resolve, reject) => {
@@ -20,10 +18,13 @@ async function runCommand(command) {
     });
   });
 }
+const { exec } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
-/**
- * Reads the Java & Tomcat versions and URLs from `mavee_config_upgrade.json`
- */
+const configPath = path.join(__dirname, "mavee_config_upgrade.json");
+
+
 async function getUpgradeConfig() {
   try {
     if (!fs.existsSync(configPath)) {
@@ -44,9 +45,60 @@ async function getUpgradeConfig() {
     throw error;
   }
 }
-
 /**
- * Creates a backup of the given directory.
+ * Retrieves the current versions of Java and Tomcat installed on the system.
+ * 
+ * This function uses the `runCommand` utility to execute shell commands and extract the
+ * current versions of Java and Tomcat from the directory names in the `/opt` directory.
+ * 
+ * @returns {Promise<{ currentJavaVersion: string, currentTomcatVersion: string }>} - An object containing the current versions of Java and Tomcat.
+ */
+async function getCurrentVersions() {
+  let currentJavaVersion = null;
+  let currentTomcatVersion = null;
+
+  try {
+    // Extract the current Java version from the directory name in `/opt`
+    currentJavaVersion = await runCommand(`ls /opt | grep 'openjdk-' | sed 's/openjdk-//' | head -n 1`);
+  } catch (error) {
+    console.warn("⚠️ No existing Java installation found.");
+  }
+
+  try {
+    // Extract the current Tomcat version from the directory name in `/opt`
+    currentTomcatVersion = await runCommand(`ls /opt | grep 'tomcat-' | sed 's/tomcat-//' | head -n 1`);
+  } catch (error) {
+    console.warn("⚠️ No existing Tomcat installation found.");
+  }
+
+  return { currentJavaVersion, currentTomcatVersion };
+}
+async function validateUpgrade(javaVersion, tomcatVersion) {
+  const { currentJavaVersion, currentTomcatVersion } = await getCurrentVersions();
+
+  if (javaVersion === currentJavaVersion && tomcatVersion === currentTomcatVersion) {
+    console.error(`🚨 Upgrade aborted: Java ${javaVersion} and Tomcat ${tomcatVersion} are already installed.`);
+    process.exit(1); // Stop execution
+  }
+
+  if (javaVersion === currentJavaVersion) {
+    console.error(`🚨 Upgrade aborted: Java ${javaVersion} is already installed.`);
+    process.exit(1);
+  }
+
+  if (tomcatVersion === currentTomcatVersion) {
+    console.error(`🚨 Upgrade aborted: Tomcat ${tomcatVersion} is already installed.`);
+    process.exit(1);
+  }
+}
+ 
+/**
+ * Creates a backup of the specified source directory to the destination directory.
+ * If a backup already exists at the destination, it will be removed before creating the new backup.
+ *
+ * @param {string} source - The path to the directory to be backed up.
+ * @param {string} destination - The path to the backup directory.
+ * @returns {Promise<void>} - A Promise that resolves when the backup is complete.
  */
 async function createBackup(source, destination) {
   try {
@@ -62,9 +114,7 @@ async function createBackup(source, destination) {
   }
 }
 
-/**
- * Rolls back to the previous versions of Java & Tomcat.
- */
+ 
 async function rollback(javaVersion, tomcatVersion) {
   console.log("🔄 Rolling back due to failure...");
 
@@ -99,9 +149,7 @@ async function rollback(javaVersion, tomcatVersion) {
   }
 }
 
-/**
- * Upgrades Java.
- */
+ 
 async function upgradeJava(javaVersion, javaUrl) {
   const javaDir = `/opt/openjdk-${javaVersion}`;
   const tempTarFile = `/tmp/java-${javaVersion}.tar.gz`;
@@ -161,9 +209,7 @@ await runCommand(`bash -c "source /etc/profile"`);
   }
 }
 
-/**
- * Upgrades Tomcat.
- */
+ 
 async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
   const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
   const tempTarFile = `/tmp/tomcat-${tomcatVersion}.tar.gz`;
@@ -254,14 +300,15 @@ WantedBy=multi-user.target
 
 
 
-/**
- * Main upgrade function.
- */
+ 
 async function upgrade() {
   try {
     console.log("🚀 Starting upgrade process...");
 
     const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } = await getUpgradeConfig();
+
+    // ✅ Validate if upgrade is needed
+    await validateUpgrade(javaVersion, tomcatVersion);
 
     await upgradeJava(javaVersion, javaUrl);
     await upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion);
