@@ -129,47 +129,69 @@ async function createBackup(source, destination) {
   }
 }
 
-async function rollbackUpgrade(javaVersion, tomcatVersion) {
+async function rollbackUpgrade(previousJavaVersion, previousTomcatVersion) {
   console.log("🔄 Rolling back due to failure...");
 
   try {
-    const javaBackupDir = `/opt/java_backups/openjdk-${javaVersion}`;
-    const tomcatBackupDir = `/opt/tomcat_backups/tomcat-${tomcatVersion}`;
+    const javaBackupDir = `/opt/java_backups/openjdk-${previousJavaVersion}`;
+    const tomcatBackupDir = `/opt/tomcat_backups/tomcat-${previousTomcatVersion}`;
 
+    // ✅ Restore Java from backup
     if (fs.existsSync(javaBackupDir)) {
-      console.log(`♻️ Restoring Java ${javaVersion} from backup...`);
+      console.log(`♻️ Restoring Java ${previousJavaVersion} from backup...`);
       await runCommand(`sudo rm -rf /opt/openjdk-*`);
-      await runCommand(
-        `sudo cp -r ${javaBackupDir} /opt/openjdk-${javaVersion}`
-      );
+      await runCommand(`sudo cp -r ${javaBackupDir} /opt/openjdk-${previousJavaVersion}`);
+
+      // ✅ Restore Java Environment Variables
+      console.log(`🔧 Restoring environment variables for Java ${previousJavaVersion}...`);
+      const envCommands = `
+        sudo sed -i '/^export JAVA_HOME=/d' /etc/profile
+        sudo sed -i '/^export PATH=.*JAVA_HOME/d' /etc/profile
+        sudo sed -i '/^JAVA_HOME=/d' /etc/environment
+
+        echo 'export JAVA_HOME=/opt/openjdk-${previousJavaVersion}' | sudo tee -a /etc/profile
+        echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
+        echo 'JAVA_HOME=/opt/openjdk-${previousJavaVersion}' | sudo tee -a /etc/environment
+      `;
+      await runCommand(envCommands);
+      await runCommand(`bash -c "source /etc/profile"`); // Apply changes
+
+      console.log(`✅ Java ${previousJavaVersion} rollback and environment restore completed.`);
     } else {
-      console.warn(
-        `⚠️ No Java backup found for version ${javaVersion}. Skipping rollback.`
-      );
+      console.warn(`⚠️ No Java backup found for version ${previousJavaVersion}. Skipping rollback.`);
     }
 
+    // ✅ Restore Tomcat from backup
     if (fs.existsSync(tomcatBackupDir)) {
-      console.log(`♻️ Restoring Tomcat ${tomcatVersion} from backup...`);
+      console.log(`♻️ Restoring Tomcat ${previousTomcatVersion} from backup...`);
       await runCommand(`sudo rm -rf /opt/tomcat-*`);
-      await runCommand(
-        `sudo cp -r ${tomcatBackupDir} /opt/tomcat-${tomcatVersion}`
-      );
+      await runCommand(`sudo cp -r ${tomcatBackupDir} /opt/tomcat-${previousTomcatVersion}`);
+
+      // ✅ Set correct ownership and permissions
+      console.log(`🔧 Setting permissions and ownership for Tomcat ${previousTomcatVersion}...`);
+      await runCommand(`sudo chown -R tomcat:tomcat /opt/tomcat-${previousTomcatVersion}/`);
+      await runCommand(`sudo chmod -R 755 /opt/tomcat-${previousTomcatVersion}/`);
+      await runCommand(`sudo chmod -R +x /opt/tomcat-${previousTomcatVersion}/bin/*.sh`);
+
+      // ✅ Restart Tomcat systemd service
+      console.log(`⚙️ Restarting Tomcat service for version ${previousTomcatVersion}...`);
+      await runCommand(`sudo systemctl daemon-reload`);
+      await runCommand(`sudo systemctl restart tomcat-${previousTomcatVersion}`);
+
+      console.log(`✅ Tomcat ${previousTomcatVersion} restored and restarted.`);
     } else {
-      console.warn(
-        `⚠️ No Tomcat backup found for version ${tomcatVersion}. Skipping rollback.`
-      );
+      console.warn(`⚠️ No Tomcat backup found for version ${previousTomcatVersion}. Skipping rollback.`);
     }
 
-    // ✅ Restart Tomcat Service after rollback
-    console.log("🔄 Restarting Tomcat...");
-    await runCommand(`sudo systemctl daemon-reload`);
-    await runCommand(`sudo systemctl restart tomcat-${tomcatVersion}`);
-
-    console.log("✅ Rollback completed successfully.");
+    console.log("✅ Rollback to previous versions completed successfully.");
   } catch (error) {
     console.error("❌ Rollback failed:", error);
   }
 }
+
+
+
+
 
 async function upgradeJava(javaVersion, javaUrl) {
   const javaDir = `/opt/openjdk-${javaVersion}`;
@@ -180,9 +202,7 @@ async function upgradeJava(javaVersion, javaUrl) {
     await runCommand(`sudo mkdir -p ${javaBackupsDir}`);
 
     // ✅ Backup current Java version
-    const existingJava = await runCommand(
-      `ls /opt | grep 'openjdk-' | head -n 1`
-    );
+    const existingJava = await runCommand(`ls /opt | grep 'openjdk-' | head -n 1`);
     if (existingJava) {
       const backupDest = path.join(javaBackupsDir, existingJava);
       await createBackup(`/opt/${existingJava}`, backupDest);
@@ -197,20 +217,15 @@ async function upgradeJava(javaVersion, javaUrl) {
       await runCommand(`sudo wget -q "${javaUrl}" -O "${tempTarFile}"`);
     } catch (error) {
       console.error("❌ Java download failed. Rolling back...");
-
-      // ✅ Get current Tomcat version dynamically
       const { currentTomcatVersion } = await getCurrentVersions();
       await rollbackUpgrade(javaVersion, currentTomcatVersion);
-
       throw error;
     }
 
     await runCommand(`sudo tar -xzf "${tempTarFile}" -C /opt`);
 
     // ✅ Rename extracted folder
-    const extractedFolder = await runCommand(
-      `ls /opt | grep 'jdk-' | head -n 1`
-    );
+    const extractedFolder = await runCommand(`ls /opt | grep 'jdk-' | head -n 1`);
     if (extractedFolder) {
       await runCommand(`sudo mv /opt/${extractedFolder} ${javaDir}`);
     }
@@ -229,16 +244,16 @@ async function upgradeJava(javaVersion, javaUrl) {
     `;
 
     await runCommand(envCommands);
-
-    // ✅ Apply changes to the current shell session
     await runCommand(`bash -c "source /etc/profile"`);
 
     console.log(`✅ Java ${javaVersion} upgraded successfully.`);
+    return true; // ✅ Java upgrade successful
   } catch (error) {
     console.error(`❌ Java upgrade failed: ${error}`);
     throw error;
   }
 }
+
 
 async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
   const tomcatDir = `/opt/tomcat-${tomcatVersion}`;
@@ -265,7 +280,11 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
       await runCommand(`sudo wget -q "${tomcatUrl}" -O "${tempTarFile}"`);
     } catch (error) {
       console.error("❌ Tomcat download failed. Rolling back...");
-      await rollbackUpgrade(javaVersion, tomcatVersion);
+
+      // ✅ Get previous Java version dynamically
+      const { currentJavaVersion, currentTomcatVersion } = await getCurrentVersions();
+      await rollbackUpgrade(currentJavaVersion, currentTomcatVersion);
+      
       throw error;
     }
 
@@ -284,6 +303,7 @@ async function upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion) {
     await runCommand(`sudo chmod -R 755 ${tomcatDir}`);
     await runCommand(`sudo chmod -R +x ${tomcatDir}/bin/*.sh`);
 
+   
     // ✅ Create new Tomcat systemd service
     const serviceFilePath = `/etc/systemd/system/tomcat-${tomcatVersion}.service`;
     const serviceFileContent = `
@@ -309,8 +329,12 @@ WantedBy=multi-user.target
       `echo '${serviceFileContent}' | sudo tee ${serviceFilePath}`
     );
     await runCommand(`sudo chmod 644 ${serviceFilePath}`);
+    await runCommand(`sudo chown -R tomcat:tomcat /opt/tomcat-${tomcatVersion}/`);
+      await runCommand(`sudo chmod -R 755 /opt/tomcat-${tomcatVersion}/`);
+      await runCommand(`sudo chmod -R +x /opt/tomcat-${tomcatVersion}/bin/*.sh`);
     await runCommand(`sudo systemctl daemon-reload`);
     await runCommand(`sudo systemctl enable tomcat-${tomcatVersion}`);
+    console.log("🚀 Checking for SANTOSH Starting Tomcat service...");
     await runCommand(`sudo systemctl restart tomcat-${tomcatVersion}`);
 
     console.log(`✅ Tomcat ${tomcatVersion} upgraded successfully.`);
@@ -337,25 +361,46 @@ WantedBy=multi-user.target
   }
 }
 
+
 async function upgrade() {
   try {
     console.log("🚀 Starting upgrade process...");
-
-    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } =
-      await readUpgradeConfiguration();
+    const { javaVersion, javaUrl, tomcatVersion, tomcatUrl } = await readUpgradeConfiguration();
+    const { currentJavaVersion, currentTomcatVersion } = await getCurrentVersions();
 
     // ✅ Validate if upgrade is needed
     await validateUpgradeConditions(javaVersion, tomcatVersion);
 
-    await upgradeJava(javaVersion, javaUrl);
-    await upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion);
+    // ✅ Attempt Java upgrade
+    let javaUpgraded = false;
+    try {
+      javaUpgraded = await upgradeJava(javaVersion, javaUrl);
+    } catch (error) {
+      console.error("❌ Java upgrade failed. Aborting process.");
+      return; // Stop if Java upgrade fails
+    }
 
-    console.log("✅ Upgrade completed successfully.");
+    // ✅ Attempt Tomcat upgrade
+    try {
+      await upgradeTomcat(tomcatVersion, tomcatUrl, javaVersion);
+      console.log("✅ Upgrade completed successfully.");
+    } catch (error) {
+      console.error("❌ Tomcat upgrade failed. Rolling back...");
+      
+      // ✅ Rollback Java if it was upgraded but Tomcat failed
+      if (javaUpgraded) {
+        console.log(`🔄 Rolling back Java ${javaVersion} to ${currentJavaVersion} since Tomcat failed...`);
+        await rollbackUpgrade(currentJavaVersion, currentTomcatVersion);
+      }
+
+      throw error;
+    }
   } catch (error) {
-    console.error("❌ Upgrade failed. Rolling back...");
-    const { javaVersion, tomcatVersion } = await readUpgradeConfiguration();
-    await rollbackUpgrade(javaVersion, tomcatVersion);
+    console.error("❌ Upgrade process failed:", error);
   }
 }
+
+
+
 
 module.exports = { upgrade };

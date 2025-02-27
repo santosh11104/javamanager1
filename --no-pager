@@ -1,0 +1,51 @@
+-- Logs begin at Tue 2025-02-11 22:17:25 IST, end at Wed 2025-02-26 16:19:29 IST. --
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at java.base/java.io.FileOutputStream.open(FileOutputStream.java:293)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:235)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.valves.AccessLogValve.open(AccessLogValve.java:623)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.valves.AccessLogValve.startInternal(AccessLogValve.java:657)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.StandardPipeline.startInternal(StandardPipeline.java:157)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:773)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:721)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1203)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1193)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:75)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:749)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:211)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.StandardService.startInternal(StandardService.java:415)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:874)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.startup.Catalina.start(Catalina.java:739)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at java.base/java.lang.reflect.Method.invoke(Method.java:577)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.startup.Bootstrap.start(Bootstrap.java:345)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]:                 at org.apache.catalina.startup.Bootstrap.main(Bootstrap.java:473)
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.055 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deploying web application directory [/opt/tomcat-9.0.99/webapps/manager]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.133 WARNING [main] org.apache.catalina.core.StandardContext.postWorkDirectory Failed to create work directory [/opt/tomcat-9.0.99/work/Catalina/localhost/manager] for context [/manager]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.304 SEVERE [main] org.apache.jasper.EmbeddedServletOptions.<init> The scratchDir you specified: [/opt/tomcat-9.0.99/work/Catalina/localhost/manager] is unusable.
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.311 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deployment of web application directory [/opt/tomcat-9.0.99/webapps/manager] has finished in [256] ms
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.312 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deploying web application directory [/opt/tomcat-9.0.99/webapps/examples]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.315 WARNING [main] org.apache.catalina.core.StandardContext.postWorkDirectory Failed to create work directory [/opt/tomcat-9.0.99/work/Catalina/localhost/examples] for context [/examples]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.532 SEVERE [main] org.apache.jasper.EmbeddedServletOptions.<init> The scratchDir you specified: [/opt/tomcat-9.0.99/work/Catalina/localhost/examples] is unusable.
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.533 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deployment of web application directory [/opt/tomcat-9.0.99/webapps/examples] has finished in [221] ms
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.533 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deploying web application directory [/opt/tomcat-9.0.99/webapps/docs]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.537 WARNING [main] org.apache.catalina.core.StandardContext.postWorkDirectory Failed to create work directory [/opt/tomcat-9.0.99/work/Catalina/localhost/docs] for context [/docs]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.552 SEVERE [main] org.apache.jasper.EmbeddedServletOptions.<init> The scratchDir you specified: [/opt/tomcat-9.0.99/work/Catalina/localhost/docs] is unusable.
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.553 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deployment of web application directory [/opt/tomcat-9.0.99/webapps/docs] has finished in [19] ms
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.553 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deploying web application directory [/opt/tomcat-9.0.99/webapps/ROOT]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.555 WARNING [main] org.apache.catalina.core.StandardContext.postWorkDirectory Failed to create work directory [/opt/tomcat-9.0.99/work/Catalina/localhost/ROOT] for context []
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.566 SEVERE [main] org.apache.jasper.EmbeddedServletOptions.<init> The scratchDir you specified: [/opt/tomcat-9.0.99/work/Catalina/localhost/ROOT] is unusable.
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.567 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deployment of web application directory [/opt/tomcat-9.0.99/webapps/ROOT] has finished in [14] ms
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.567 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deploying web application directory [/opt/tomcat-9.0.99/webapps/host-manager]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.570 WARNING [main] org.apache.catalina.core.StandardContext.postWorkDirectory Failed to create work directory [/opt/tomcat-9.0.99/work/Catalina/localhost/host-manager] for context [/host-manager]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.585 SEVERE [main] org.apache.jasper.EmbeddedServletOptions.<init> The scratchDir you specified: [/opt/tomcat-9.0.99/work/Catalina/localhost/host-manager] is unusable.
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.586 INFO [main] org.apache.catalina.startup.HostConfig.deployDirectory Deployment of web application directory [/opt/tomcat-9.0.99/webapps/host-manager] has finished in [19] ms
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.590 INFO [main] org.apache.coyote.AbstractProtocol.start Starting ProtocolHandler ["http-nio-8080"]
+Feb 26 16:16:58 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:58.599 INFO [main] org.apache.catalina.startup.Catalina.start Server startup in [598] milliseconds
+Feb 26 16:16:59 T470p-11 catalina.sh[46621]: 26-Feb-2025 16:16:59.180 SEVERE [http-nio-8080-exec-1] org.apache.jasper.JspCompilationContext.createOutputDir Unable to create output directory [/opt/tomcat-9.0.99/work/Catalina/localhost/ROOT/org/apache/jsp/] required for JSP compilation
